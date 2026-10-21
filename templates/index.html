@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Добро пожаловать в панель HR</h1>
+    <p>Управление учетными записями в AD (Эвостор).</p>
+    
+    {% if not session.get('user_id') %}
+        <p style="color: #d9534f; font-weight: bold;">Вы не авторизованы.</p>
+    {% endif %}
+
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Вход в систему</h2>
+            <div id="msg" style="margin-bottom: 10px; display: none;"></div>
+            
+            <label>Логин</label>
+            <input id="hr-login">
+            <label>Пароль</label>
+            <input id="hr-pass" type="password">
+            
+            <button onclick="doLogin()">Войти</button>
+            <button onclick="document.getElementById('login-modal').style.display='none'" style="background: #e4e6eb; color: #1c1e21;">Отмена</button>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    {% if not session.get('user_id') %}
+        document.getElementById('login-modal').style.display = 'flex';
+    {% endif %}
+
+    async function doLogin() {
+        const msgDiv = document.getElementById('msg');
+        msgDiv.style.display = 'none';
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    login: document.getElementById('hr-login').value,
+                    password: document.getElementById('hr-pass').value
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                window.location.reload();
+            } else {
+                msgDiv.textContent = data.message;
+                msgDiv.className = 'err';
+                msgDiv.style.display = 'block';
+            }
+        } catch (e) {
+            msgDiv.textContent = "Ошибка сети";
+            msgDiv.className = 'err';
+            msgDiv.style.display = 'block';
+        }
+    }
+</script>
+{% endblock %}

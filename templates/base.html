@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR → AD Панель</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-links">
+            <a href="/">Главная</a>
+            {% if session.get('user_id') %}
+                <a href="/create">Создать сотрудника</a>
+                <a href="/employees">Сотрудники</a>
+            {% endif %}
+        </div>
+        
+        <div class="nav-links">
+            {% if session.get('user_id') %}
+                <a href="#" onclick="doLogout()" class="btn-logout">Выйти</a>
+            {% else %}
+                <a href="#" onclick="openLogin()" class="btn-login">Войти</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        function doLogout() {
+            fetch('/api/logout', {method: 'POST'}).then(() => window.location.href = '/');
+        }
+        function openLogin() {
+            const modal = document.getElementById('login-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+        function showMsg(text, isOk) {
+            const m = document.getElementById('msg');
+            if(!m) return;
+            m.textContent = text;
+            m.className = isOk ? 'ok' : 'err';
+            m.style.display = 'block';
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

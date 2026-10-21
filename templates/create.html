@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Создать нового сотрудника</h1>
+    
+    <div id="msg"></div>
+
+    <label>ФИО</label>
+    <input id="full_name" placeholder="Иванов Иван Иванович">
+    
+    <label>Логин (sAMAccountName)</label>
+    <input id="login" placeholder="ivanov.ii">
+    
+    <label>Пароль</label>
+    <input id="password" type="password">
+    
+    <label>Подтвердите пароль</label>
+    <input id="confirm" type="password">
+    
+    <label>Отдел (как в СБИС)</label>
+    <select id="department">
+        <option value="Отдел горячих продаж">Отдел горячих продаж</option>
+        <option value="Стажеры ТП">Стажеры ТП</option>
+        <option value="Колл Центр">Колл Центр</option>
+        <option value="Координатор">Координатор</option>
+        <option value="СММ">СММ</option>
+        <option value="Контроль качества">Контроль качества</option>
+        <option value="Продление">Продление</option>
+        <option value="Офис">Офис</option>
+        <option value="Отдел исходящих звонков">Отдел исходящих звонков</option>
+        <option value="Отдел входящих звонков">Отдел входящих звонков</option>
+        <option value="Отдел развития">Отдел развития</option>
+        <option value="Техническая поддержка">Техническая поддержка</option>
+        <option value="Облако">Облако</option>
+        <option value="Удаленные">Удаленные</option>
+    </select>
+
+    <label>Роль (Квалификация)</label>
+    <select id="role">
+        <option value="Sbis_Stager">Стажер</option>
+        <option value="Sbis_Main">Основной</option>
+        <option value="Sbis_Senior" id="opt-senior" style="display:none;">Старший</option>
+    </select>
+
+    <button onclick="doCreate()">Создать</button>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // При загрузке страницы проверяем, админ ли зашел, чтобы показать роль "Старший"
+    fetch('/api/me').then(res => res.json()).then(data => {
+        if(data.ok && data.role === 'admin') {
+            document.getElementById('opt-senior').style.display = 'block';
+        } else if (!data.ok) {
+            window.location.href = '/'; // Если не залогинен — на главную
+        }
+    });
+
+    async function doCreate() {
+        document.getElementById('msg').style.display = 'none';
+        try {
+            const res = await fetch('/api/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    full_name: document.getElementById('full_name').value,
+                    login: document.getElementById('login').value,
+                    password: document.getElementById('password').value,
+                    confirm: document.getElementById('confirm').value,
+                    department: document.getElementById('department').value,
+                    role: document.getElementById('role').value
+                })
+            });
+            const data = await res.json();
+            showMsg(data.message, data.ok);
+        } catch (e) {
+            showMsg("Ошибка сети: сервер не отвечает.", false);
+        }
+    }
+</script>
+{% endblock %}

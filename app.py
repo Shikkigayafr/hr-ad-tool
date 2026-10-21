@@ -8,6 +8,11 @@ app.secret_key = "super_secret_key_for_session"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hr.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# --- ФИКС СЕССИИ ---
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False 
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+
 db.init_app(app)
 
 # --- СТРАНИЦЫ ---
@@ -28,6 +33,12 @@ def page_employees():
     return render_template("employees.html")
 
 # --- API ---
+@app.route("/api/me")
+def api_me():
+    if 'user_id' in session:
+        return jsonify({"ok": True, "role": session.get('role')})
+    return jsonify({"ok": False}), 401
+
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.json or {}
@@ -76,13 +87,18 @@ def create():
     if current_role != 'admin' and selected_role == 'Sbis_Senior':
         return jsonify({"ok": False, "message": "Только админ может создавать Старших"}), 403
 
-    new_emp = Employee(full_name=full_name, login=login, department=department, role=selected_role)
-    db.session.add(new_emp)
-    db.session.commit()
+    # ВАЖНО: Передаем department в функцию!
+    group_dn = f"CN={selected_role},OU=Groups,DC=corp,DC=local" 
+    ok, message = create_user(full_name, login, password, department=department, group_dn=group_dn)
 
-    group_dn = f"CN={selected_role},OU=Groups,DC=yourdomain,DC=local"
-    ok, message = create_user(full_name, login, password, group_dn=group_dn)
+    if ok:
+        new_emp = Employee(full_name=full_name, login=login, department=department, role=selected_role)
+        db.session.add(new_emp)
+        db.session.commit()
+
     return jsonify({"ok": ok, "message": message}), (200 if ok else 500)
+
+# ... (остальные маршруты /api/employees, /api/employee/.../promote, DELETE, init_db остаются без изменений) ...
 
 @app.route("/api/employees", methods=["GET"])
 def get_employees():

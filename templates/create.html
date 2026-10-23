@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Создать нового сотрудника</h1>
+    <p>Заполните данные — учётная запись будет создана в AD.</p>
+
+    <label for="full_name">ФИО</label>
+    <div class="input-group">
+        <input id="full_name" placeholder="Иванов Иван Иванович" autocomplete="name" oninput="validateField('full_name')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+    </div>
+    <div class="error-text" id="err-full_name"></div>
+
+    <label for="login">Логин (sAMAccountName)</label>
+    <div class="input-group">
+        <input id="login" placeholder="ivanov.ii" autocomplete="off" oninput="validateField('login')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+    </div>
+    <div class="error-text" id="err-login"></div>
+
+    <label for="email">Рабочая почта (Email)</label>
+    <div class="input-group">
+        <input id="email" type="email" placeholder="ivanov@evostor.ru" autocomplete="email" oninput="validateField('email')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+    </div>
+    <div class="error-text" id="err-email"></div>
+
+    <label for="password">Пароль</label>
+    <div class="input-group">
+        <input id="password" type="password" autocomplete="new-password" oninput="checkPasswordStrength()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    </div>
+    
+    <div class="password-strength" id="pass-strength">
+        <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+        <div class="strength-rules">
+            <span id="rule-length" class="rule">❌ 8+ символов</span>
+            <span id="rule-upper" class="rule">❌ Заглавная</span>
+            <span id="rule-number" class="rule">❌ Цифра</span>
+            <span id="rule-special" class="rule">❌ Спецсимвол</span>
+        </div>
+    </div>
+
+    <label for="confirm">Подтвердите пароль</label>
+    <div class="input-group">
+        <input id="confirm" type="password" autocomplete="new-password" oninput="validateField('confirm')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    </div>
+    <div class="error-text" id="err-confirm"></div>
+
+    <label for="department">Отдел (как в СБИС)</label>
+    <select id="department">
+        <option>Отдел горячих продаж</option>
+        <option>Стажеры ТП</option>
+        <option>Колл Центр</option>
+        <option>Координатор</option>
+        <option>СММ</option>
+        <option>Контроль качества</option>
+        <option>Продление</option>
+        <option>Офис</option>
+        <option>Отдел исходящих звонков</option>
+        <option>Отдел входящих звонков</option>
+        <option>Отдел развития</option>
+        <option>Техническая поддержка</option>
+        <option>Облако</option>
+        <option>Удаленные</option>
+    </select>
+
+    <label for="role">Роль (Квалификация)</label>
+    <select id="role">
+        <option value="Sbis_Stager">Стажер</option>
+        <option value="Sbis_Main">Основной</option>
+        <option value="Sbis_Senior" id="opt-senior" style="display:none;">Старший</option>
+    </select>
+
+    <button onclick="doCreate(this)" class="btn-block btn-pulse">Создать</button>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Проверка прав
+    fetch('/api/me').then(r => r.json()).then(data => {
+        if (data.ok && data.role === 'admin') {
+            document.getElementById('opt-senior').style.display = 'block';
+        } else if (!data.ok) {
+            window.location.href = '/';
+        }
+    });
+
+    // Регулярки
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const loginRegex = /^[a-zA-Z0-9._-]{3,20}$/;
+
+    // Функция валидации конкретного поля
+    function validateField(fieldId) {
+        const el = document.getElementById(fieldId);
+        const errEl = document.getElementById('err-' + fieldId);
+        let isValid = true;
+        let msg = '';
+
+        if (fieldId === 'full_name' && el.value.trim().length < 3) {
+            isValid = false;
+            msg = 'Введите полное ФИО (минимум 3 буквы)';
+        } else if (fieldId === 'login' && !loginRegex.test(el.value.trim())) {
+            isValid = false;
+            msg = 'Логин: от 3 до 20 символов (латиница, цифры, точки, дефисы)';
+        } else if (fieldId === 'email' && !emailRegex.test(el.value.trim())) {
+            isValid = false;
+            msg = 'Введите корректный Email (например, name@evostor.ru)';
+        } else if (fieldId === 'confirm' && el.value !== document.getElementById('password').value) {
+            isValid = false;
+            msg = 'Пароли не совпадают';
+        }
+
+        // Обновляем красную подпись под инпутом
+        if (isValid) {
+            el.classList.remove('input-error');
+            errEl.textContent = '';
+        } else {
+            el.classList.add('input-error');
+            errEl.textContent = msg;
+        }
+        return { isValid, msg };
+    }
+
+    // Умная проверка пароля с полоской
+    function checkPasswordStrength() {
+        const pass = document.getElementById('password').value;
+        const fill = document.getElementById('strength-fill');
+        
+        const hasLength = pass.length >= 8;
+        const hasUpper = /[A-Z]/.test(pass);
+        const hasNumber = /[0-9]/.test(pass);
+        const hasSpecial = /[^A-Za-z0-9]/.test(pass);
+
+        document.getElementById('rule-length').className = 'rule ' + (hasLength ? 'ok' : '');
+        document.getElementById('rule-upper').className = 'rule ' + (hasUpper ? 'ok' : '');
+        document.getElementById('rule-number').className = 'rule ' + (hasNumber ? 'ok' : '');
+        document.getElementById('rule-special').className = 'rule ' + (hasSpecial ? 'ok' : '');
+        
+        document.getElementById('rule-length').textContent = (hasLength ? '✅ ' : '❌ ') + '8+ символов';
+        document.getElementById('rule-upper').textContent = (hasUpper ? '✅ ' : '❌ ') + 'Заглавная';
+        document.getElementById('rule-number').textContent = (hasNumber ? '✅ ' : '❌ ') + 'Цифра';
+        document.getElementById('rule-special').textContent = (hasSpecial ? '✅ ' : '❌ ') + 'Спецсимвол';
+
+        let score = 0;
+        if (hasLength) score++;
+        if (hasUpper) score++;
+        if (hasNumber) score++;
+        if (hasSpecial) score++;
+
+        fill.className = 'strength-fill';
+        if (pass.length === 0) {
+            fill.style.width = '0%';
+        } else if (score <= 2) {
+            fill.classList.add('weak');
+            fill.style.width = '33%';
+        } else if (score === 3) {
+            fill.classList.add('medium');
+            fill.style.width = '66%';
+        } else {
+            fill.classList.add('strong');
+            fill.style.width = '100%';
+        }
+        
+        return score === 4; // Возвращаем true, если пароль надежный
+    }
+
+    async function doCreate(btn) {
+        // Принудительно прогоняем все валидации перед отправкой
+        const nameCheck = validateField('full_name');
+        const loginCheck = validateField('login');
+        const emailCheck = validateField('email');
+        const confirmCheck = validateField('confirm');
+        
+        // Отдельно проверяем пароль на надежность
+        const isPassStrong = checkPasswordStrength();
+
+        // Если есть проебы — показываем тост с ПЕРВОЙ ошибкой и выходим
+        if (!nameCheck.isValid) {
+            toast(`Ошибка в поле ФИО: ${nameCheck.msg}`, false);
+            return;
+        }
+        if (!loginCheck.isValid) {
+            toast(`Ошибка в поле Логин: ${loginCheck.msg}`, false);
+            return;
+        }
+        if (!emailCheck.isValid) {
+            toast(`Ошибка в поле Email: ${emailCheck.msg}`, false);
+            return;
+        }
+        if (!isPassStrong) {
+            toast('Ошибка в поле Пароль: Слишком простой. Нужны 8+ символов, заглавная, цифра и спецсимвол.', false);
+            return;
+        }
+        if (!confirmCheck.isValid) {
+            toast('Ошибка в поле Подтверждение: Пароли не совпадают!', false);
+            return;
+        }
+
+        // Если всё ок — отправляем на сервер
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    full_name: document.getElementById('full_name').value.trim(),
+                    login: document.getElementById('login').value.trim(),
+                    email: document.getElementById('email').value.trim(),
+                    password: document.getElementById('password').value,
+                    confirm: document.getElementById('confirm').value,
+                    department: document.getElementById('department').value,
+                    role: document.getElementById('role').value
+                })
+            });
+            const data = await res.json();
+            
+            // Тут выводим ответ от сервера (успех или ошибка от AD)
+            toast(data.message, data.ok);
+            
+            if (data.ok) {
+                ['full_name', 'login', 'email', 'password', 'confirm'].forEach(id => {
+                    document.getElementById(id).value = '';
+                    document.getElementById(id).classList.remove('input-error');
+                });
+                document.querySelectorAll('.error-text').forEach(el => el.textContent = '');
+                checkPasswordStrength();
+            }
+        } catch (e) {
+            toast('Ошибка сети: сервер не отвечает.', false);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

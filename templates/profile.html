@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="dashboard-header">
+        <div class="header-left">
+            <h1>Личный кабинет</h1>
+            <p>Управление вашим профилем и безопасностью.</p>
+        </div>
+    </div>
+
+    <div class="profile-layout">
+        <!-- Левая колонка: Аватар и данные -->
+        <div class="profile-sidebar">
+            <div class="profile-card-large">
+                <div class="avatar-large" id="big-avatar" style="background-size: cover; background-position: center;">...</div>
+                
+                <form id="avatar-form" style="margin-top: 15px;">
+                    <input type="file" id="avatar-input" accept="image/png, image/jpeg" style="display: none;" onchange="uploadAvatar()">
+                    <button type="button" class="btn-secondary btn-small" onclick="document.getElementById('avatar-input').click()" style="width: 100%;">
+                        📷 Сменить фото
+                    </button>
+                </form>
+                
+                <h2 id="display-username" style="margin-top: 20px;">admin</h2>
+                <span class="badge badge-admin">Пользователь</span>
+            </div>
+        </div>
+
+        <!-- Правая колонка: Формы -->
+        <div class="profile-content">
+            <h2>Основные настройки</h2>
+            <div class="settings-card">
+                <label for="first_name">Как к вам обращаться?</label>
+                <div class="input-group">
+                    <input id="first_name" placeholder="Например: Карим">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </div>
+                <button onclick="updateProfile(this)" class="btn-block btn-small" style="margin-top: 15px;">Сохранить имя</button>
+            </div>
+
+            <h2 style="margin-top: 30px;">Смена пароля</h2>
+            <div class="settings-card">
+                <label for="old_password">Текущий пароль</label>
+                <div class="input-group">
+                    <input id="old_password" type="password">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+
+                <label for="new_password">Новый пароль</label>
+                <div class="input-group">
+                    <input id="new_password" type="password">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+
+                <label for="confirm_password">Повторите новый пароль</label>
+                <div class="input-group">
+                    <input id="confirm_password" type="password">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <button onclick="updatePassword(this)" class="btn-block btn-small" style="margin-top: 15px;">Изменить пароль</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    {% if session.get('user_id') %}
+        fetch('/api/profile')
+            .then(res => res.json())
+            .then(data => {
+                if (data.ok) {
+                    document.getElementById('first_name').value = data.first_name || '';
+                    document.getElementById('display-username').textContent = data.username;
+                    
+                    const displayName = data.first_name || data.username;
+                    const avatarDiv = document.getElementById('big-avatar');
+                    
+                    if (data.avatar) {
+                        avatarDiv.textContent = '';
+                        avatarDiv.style.backgroundImage = `url('/static/avatars/${data.avatar}')`;
+                    } else {
+                        avatarDiv.textContent = displayName.substring(0, 2).toUpperCase();
+                    }
+                }
+            });
+    {% endif %}
+
+    async function uploadAvatar() {
+        const input = document.getElementById('avatar-input');
+        const file = input.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        try {
+            const res = await fetch('/api/profile/avatar', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            toast(data.message, data.ok);
+            
+            if (data.ok) {
+                const avatarDiv = document.getElementById('big-avatar');
+                avatarDiv.textContent = ''; 
+                avatarDiv.style.backgroundImage = `url('/static/avatars/${data.filename}?t=${Date.now()}')`;
+            }
+        } catch (e) {
+            toast('Ошибка загрузки', false);
+        }
+    }
+
+    async function updateProfile(btn) {
+        const first_name = document.getElementById('first_name').value.trim();
+        if (!first_name) {
+            toast('Имя не может быть пустым', false);
+            return;
+        }
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/profile', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ first_name })
+            });
+            const data = await res.json();
+            toast(data.message, data.ok);
+            if (data.ok) {
+                document.getElementById('display-username').textContent = first_name;
+            }
+        } catch (e) {
+            toast('Ошибка сети', false);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function updatePassword(btn) {
+        const old_password = document.getElementById('old_password').value;
+        const new_password = document.getElementById('new_password').value;
+        const confirm_password = document.getElementById('confirm_password').value;
+
+        if (!old_password || !new_password) {
+            toast('Заполните все поля', false);
+            return;
+        }
+        if (new_password !== confirm_password) {
+            toast('Новые пароли не совпадают', false);
+            return;
+        }
+        if (new_password.length < 8 || !/[A-Z]/.test(new_password) || !/[0-9]/.test(new_password) || !/[^A-Za-z0-9]/.test(new_password)) {
+            toast('Новый пароль слишком простой (нужно 8+ символов, заглавная, цифра, спецсимвол)', false);
+            return;
+        }
+
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/profile/password', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ old_password, new_password })
+            });
+            const data = await res.json();
+            toast(data.message, data.ok);
+            if (data.ok) {
+                document.getElementById('old_password').value = '';
+                document.getElementById('new_password').value = '';
+                document.getElementById('confirm_password').value = '';
+            }
+        } catch (e) {
+            toast('Ошибка сети', false);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

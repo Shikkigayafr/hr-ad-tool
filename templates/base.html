@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR → AD Панель</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Chart.js для графиков -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Socket.IO для уведомлений в реальном времени -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+    <script>
+        (function () {
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-links">
+            <a href="/">Главная</a>
+        </div>
+
+        <div class="nav-links">
+            <button class="theme-toggle" id="theme-toggle" type="button" title="Сменить тему" aria-label="Сменить тему">🌗</button>
+            {% if session.get('user_id') %}
+                <a href="/profile" class="nav-profile-link" title="Перейти в личный кабинет">
+                    <div class="nav-avatar" id="nav-avatar" style="background-size: cover; background-position: center;">...</div>
+                    <span class="nav-username" id="nav-username">Профиль</span>
+                </a>
+                <a href="#" onclick="doLogout();return false;" class="btn-logout">Выйти</a>
+            {% else %}
+                <a href="#" onclick="openLogin();return false;" class="btn-login">Войти</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Обертка для контейнера и сайдбара -->
+    <div class="main-wrapper">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+        
+        <!-- Сюда вставляются логи (справа от окна) -->
+        {% block sidebar %}{% endblock %}
+    </div>
+
+    <!-- Футер с пасхалкой и скрытыми соцсетями -->
+    <footer class="site-footer">
+        <div class="footer-content">
+            <span onclick="showEasterEgg()" style="cursor: pointer;" title="Кто это сделал?">© 2026</span>
+            <span class="footer-sep">•</span>
+            <span>Панель управления сотрудниками для <span onclick="showEasterEgg()" style="cursor: pointer; font-weight: 600; color: var(--text-muted);" title="Кто это сделал?">Эвостор</span></span>
+        </div>
+        
+        <!-- Скрытые соцсети (текст убран) -->
+        <div class="footer-dev-info" title="Контакты разработчика">
+            <div class="footer-links-hidden">
+                <a href="https://github.com/Shikkigayafr" target="_blank" rel="noopener noreferrer" title="GitHub">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    <span>@shikkigayafr</span>
+                </a>
+                <a href="https://t.me/shikkigaya" target="_blank" rel="noopener noreferrer" title="Telegram">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                    <span>@shikkigaya</span>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Модалка логина -->
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Вход в систему</h2>
+            <div id="msg"></div>
+
+            <label for="hr-login">Логин</label>
+            <div class="input-group">
+                <input id="hr-login" autocomplete="username">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+
+            <label for="hr-pass">Пароль</label>
+            <div class="input-group">
+                <input id="hr-pass" type="password" autocomplete="current-password">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </div>
+
+            <button type="button" onclick="doLogin(this)" id="btn-login" class="btn-block">Войти</button>
+            <button type="button" onclick="closeLogin()" class="btn-secondary btn-block">Отмена</button>
+        </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="{{ url_for('static', filename='greetings.js') }}"></script>
+
+    <script>
+        /* ---------- Тема ---------- */
+        const themeBtn = document.getElementById('theme-toggle');
+        function syncThemeIcon() {
+            const t = document.documentElement.getAttribute('data-theme');
+            themeBtn.textContent = t === 'dark' ? '☀️' : '🌗';
+        }
+        themeBtn.addEventListener('click', () => {
+            const cur = document.documentElement.getAttribute('data-theme');
+            const next = cur === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            syncThemeIcon();
+        });
+        syncThemeIcon();
+
+        /* ---------- Тосты ---------- */
+        function toast(text, isOk = true, ttl = 3500) {
+            const stack = document.getElementById('toast-stack');
+            const el = document.createElement('div');
+            el.className = 'toast ' + (isOk ? 'ok' : 'err');
+            
+            const iconSvg = isOk 
+                ? `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
+                : `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+
+            el.innerHTML = `${iconSvg} <span>${text}</span>`;
+            stack.appendChild(el);
+
+            setTimeout(() => {
+                el.classList.add('out');
+                el.addEventListener('animationend', () => el.remove(), { once: true });
+            }, ttl);
+        }
+
+        /* ---------- Ripple ---------- */
+        document.addEventListener('pointerdown', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const r = btn.getBoundingClientRect();
+            btn.style.setProperty('--x', ((e.clientX - r.left) / r.width * 100) + '%');
+            btn.style.setProperty('--y', ((e.clientY - r.top) / r.height * 100) + '%');
+        });
+
+        /* ---------- Авторизация и блокировка ---------- */
+        let lockoutTimerInterval = null;
+
+        function openLogin() {
+            const modal = document.getElementById('login-modal');
+            if (modal) modal.classList.add('is-open');
+            checkLockoutStatus();
+        }
+
+        async function checkLockoutStatus() {
+            try {
+                const res = await fetch('/api/check_lockout');
+                const data = await res.json();
+                const btn = document.getElementById('btn-login');
+                const msgDiv = document.getElementById('msg');
+
+                if (data.locked) {
+                    startLockoutTimer(data.seconds, btn); 
+                } else {
+                    btn.disabled = false;
+                    if (msgDiv.textContent.includes('заблокирован')) {
+                        msgDiv.textContent = '';
+                        msgDiv.className = '';
+                    }
+                }
+            } catch (e) {
+                console.error("Ошибка проверки блокировки", e);
+            }
+        }
+
+        function closeLogin() {
+            const modal = document.getElementById('login-modal');
+            if (modal) modal.classList.remove('is-open');
+            if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
+            
+            const btn = document.getElementById('btn-login');
+            btn.disabled = false;
+            document.getElementById('msg').className = '';
+            document.getElementById('msg').textContent = '';
+        }
+
+        function doLogout() {
+            fetch('/api/logout', { method: 'POST' })
+                .finally(() => window.location.href = '/');
+        }
+
+        async function doLogin(btn) {
+            const msgDiv = document.getElementById('msg');
+            msgDiv.className = '';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        login: document.getElementById('hr-login').value,
+                        password: document.getElementById('hr-pass').value
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.ok) {
+                    window.location.reload();
+                    return;
+                } else {
+                    msgDiv.textContent = data.message;
+                    msgDiv.className = 'err';
+                    
+                    if (res.status === 429) {
+                        startLockoutTimer(30 * 60, btn);
+                    } else {
+                        btn.disabled = false;
+                    }
+                }
+            } catch (e) {
+                msgDiv.textContent = "Ошибка сети";
+                msgDiv.className = 'err';
+                btn.disabled = false;
+            }
+        }
+
+        function startLockoutTimer(seconds, btn) {
+            if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
+            
+            btn.disabled = true;
+            const msgDiv = document.getElementById('msg');
+            let timeLeft = seconds;
+
+            lockoutTimerInterval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    clearInterval(lockoutTimerInterval);
+                    btn.disabled = false;
+                    msgDiv.textContent = "Можете попробовать снова.";
+                    msgDiv.className = 'ok';
+                    return;
+                }
+                const m = Math.floor(timeLeft / 60);
+                const s = timeLeft % 60;
+                msgDiv.textContent = `Слишком много попыток. Ждите ${m}:${s.toString().padStart(2, '0')}`;
+                msgDiv.className = 'err';
+            }, 1000);
+        }
+
+        /* ---------- Пасхалка ---------- */
+        function showEasterEgg() {
+            toast('👨‍💻 Разработано системным администратором Каримом Абизгильдиным. GitHub: @shikkigayafr', true, 6000);
+        }
+
+        /* ---------- Аватарка и имя в шапке ---------- */
+        {% if session.get('user_id') %}
+        fetch('/api/profile')
+            .then(res => res.json())
+            .then(data => {
+                if (data.ok) {
+                    const displayName = data.first_name || data.username;
+                    const navAvatar = document.getElementById('nav-avatar');
+                    const navUsername = document.getElementById('nav-username');
+
+                    if (navUsername) navUsername.textContent = displayName;
+
+                    if (navAvatar) {
+                        if (data.avatar) {
+                            navAvatar.textContent = '';
+                            navAvatar.style.backgroundImage = `url('/static/avatars/${data.avatar}')`;
+                        } else {
+                            navAvatar.textContent = displayName.substring(0, 2).toUpperCase();
+                        }
+                    }
+                }
+            })
+            .catch(err => console.error("Ошибка загрузки шапки", err));
+        {% endif %}
+
+        {% if not session.get('user_id') %}
+            document.addEventListener('DOMContentLoaded', openLogin);
+        {% endif %}
+
+        /* ---------- Socket.IO: Уведомления в реальном времени ---------- */
+        document.addEventListener('DOMContentLoaded', () => {
+            const socket = io();
+
+            socket.on('new_log', (data) => {
+                // Показываем красивый тост
+                toast(`🔔 ${data.user} ${data.action}`, true, 5000);
+                
+                // Если мы на главной странице (где лента событий), перезагружаем ленту
+                if (document.getElementById('log-list')) {
+                    fetch('/api/logs')
+                        .then(res => res.json())
+                        .then(logData => {
+                            if (logData.ok && logData.logs.length > 0) {
+                                const container = document.getElementById('log-list');
+                                container.innerHTML = logData.logs.map(log => `
+                                    <div class="log-item">
+                                        <div class="log-content">
+                                            <div class="log-icon">📝</div>
+                                            <div class="log-text"><strong>${log.user}</strong> ${log.action}</div>
+                                        </div>
+                                        <div class="log-time">${log.time}</div>
+                                    </div>
+                                `).join('');
+                            }
+                        });
+                }
+            });
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

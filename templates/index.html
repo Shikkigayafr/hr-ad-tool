@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="dashboard-header">
+        <div class="header-left">
+            <h1>Панель управления сотрудников <span class="wave">👋</span></h1>
+            <p>Управление учётными записями в AD (Эвостор).</p>
+        </div>
+        
+        {% if session.get('user_id') %}
+        <div class="header-right">
+            <div class="profile-widget">
+                <div class="profile-avatar" id="profile-avatar" style="background-size: cover; background-position: center;">...</div>
+                <div class="profile-info">
+                    <div class="profile-greeting" id="greeting-text">Загрузка...</div>
+                    <div class="profile-date" id="greeting-date"></div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if session.get('user_id') %}
+        <!-- СТАТИСТИКА (Со скелетонами) -->
+        <div class="stats-accordion" style="margin-top: 0;">
+            <div class="stat-accordion-item">
+                <div class="stat-header" onclick="toggleAccordion('acc-total')">
+                    <div class="stat-title"><span class="stat-icon">👥</span><span>Всего сотрудников</span></div>
+                    <div class="stat-value" id="stat-total"><span class="skeleton-text"></span></div>
+                </div>
+                <div class="stat-body" id="acc-total"><div class="loading-text">Загрузка...</div></div>
+            </div>
+            <div class="stat-accordion-item">
+                <div class="stat-header" onclick="toggleAccordion('acc-online')">
+                    <div class="stat-title"><span class="stat-icon">🟢</span><span>Онлайн сейчас</span></div>
+                    <div class="stat-value text-success" id="stat-online"><span class="skeleton-text"></span></div>
+                </div>
+                <div class="stat-body" id="acc-online"><div class="loading-text">Загрузка...</div></div>
+            </div>
+            <div class="stat-accordion-item">
+                <div class="stat-header" onclick="toggleAccordion('acc-offline')">
+                    <div class="stat-title"><span class="stat-icon">⏳</span><span>Офлайн / Отпуск</span></div>
+                    <div class="stat-value" id="stat-offline"><span class="skeleton-text"></span></div>
+                </div>
+                <div class="stat-body" id="acc-offline"><div class="loading-text">Загрузка...</div></div>
+            </div>
+        </div>
+
+        <!-- БЫСТРЫЕ ДЕЙСТВИЯ -->
+        <h2 style="margin-top: 30px; margin-bottom: 16px;">Быстрые действия</h2>
+        <div class="actions-grid">
+            <a href="/create" class="action-card">
+                <div class="action-icon">➕</div>
+                <div class="action-text"><h3>Создать сотрудника</h3><p>Добавить нового стажёра в AD</p></div>
+            </a>
+            <a href="/employees" class="action-card">
+                <div class="action-icon">📋</div>
+                <div class="action-text"><h3>Список сотрудников</h3><p>Просмотр и удаление записей</p></div>
+            </a>
+        </div>
+
+        <!-- ГРАФИК -->
+        <div class="chart-container" style="margin-top: 24px;">
+            <h2 style="margin-bottom: 16px;">Активность за 7 дней</h2>
+            <div class="chart-wrapper" style="height: 200px;"><canvas id="activityChart"></canvas></div>
+        </div>
+    {% endif %}
+{% endblock %}
+
+<!-- ПРАВАЯ КОЛОНКА (ВНЕ ОКНА) -->
+{% block sidebar %}
+    {% if session.get('user_id') %}
+    <div class="sidebar-panel">
+        <h2 style="margin-bottom: 16px; font-size: 18px; margin-top: 10px;">Лента событий</h2>
+        <div class="log-list" id="log-list">
+            <div class="loading-text">Загрузка...</div>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let statsData = { employees: [] };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        {% if session.get('user_id') %}
+            const dateOptions = { weekday: 'long', day: 'numeric', month: 'long' };
+            const today = new Date().toLocaleDateString('ru-RU', dateOptions);
+            document.getElementById('greeting-date').textContent = today.charAt(0).toUpperCase() + today.slice(1);
+
+            fetch('/api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        statsData = data;
+                        const name = data.user_name || 'Пользователь';
+                        document.getElementById('greeting-text').innerHTML = getGreeting(name);
+                        
+                        const avatarDiv = document.getElementById('profile-avatar');
+                        if (data.user_avatar) {
+                            avatarDiv.textContent = '';
+                            avatarDiv.style.backgroundImage = `url('/static/avatars/${data.user_avatar}')`;
+                        } else {
+                            avatarDiv.textContent = name.substring(0, 2).toUpperCase();
+                        }
+
+                        document.getElementById('stat-total').textContent = data.total;
+                        document.getElementById('stat-online').textContent = data.online;
+                        document.getElementById('stat-offline').textContent = data.total - data.online;
+                        renderAccordions();
+                    }
+                });
+
+            fetch('/api/chart_data')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        const ctx = document.getElementById('activityChart').getContext('2d');
+                        let gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                        gradient.addColorStop(0, 'rgba(79, 124, 255, 0.5)');
+                        gradient.addColorStop(1, 'rgba(79, 124, 255, 0)');
+
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: data.labels,
+                                datasets: [{ label: 'Создано', data: data.data, borderColor: '#4f7cff', backgroundColor: gradient, borderWidth: 3, pointBackgroundColor: '#fff', pointBorderColor: '#4f7cff', pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.4 }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.1)' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
+                        });
+                    }
+                });
+
+            fetch('/api/logs')
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById('log-list');
+                    if (data.ok) {
+                        if (data.logs.length === 0) {
+                            container.innerHTML = '<div class="list-empty">Пока нет действий</div>';
+                            return;
+                        }
+                        container.innerHTML = data.logs.map(log => `
+                            <div class="log-item">
+                                <div class="log-content">
+                                    <div class="log-icon">📝</div>
+                                    <div class="log-text"><strong>${log.user}</strong> ${log.action}</div>
+                                </div>
+                                <div class="log-time">${log.time}</div>
+                            </div>
+                        `).join('');
+                    } else {
+                        container.innerHTML = '<div class="list-empty">Ошибка доступа</div>';
+                    }
+                });
+        {% endif %}
+    });
+
+    function toggleAccordion(id) {
+        const body = document.getElementById(id);
+        const allBodies = document.querySelectorAll('.stat-body');
+        allBodies.forEach(b => { if (b.id !== id) b.classList.remove('open'); });
+        body.classList.toggle('open');
+    }
+
+    function renderAccordions() {
+        const emps = statsData.employees;
+        document.getElementById('acc-total').innerHTML = emps.map(e => `<div class="list-item"><div class="list-item-name">${e.full_name}</div><div class="list-item-meta">${e.department}</div></div>`).join('') || '<div class="list-empty">Список пуст</div>';
+        
+        const onlineEmps = emps.filter(e => e.is_online);
+        document.getElementById('acc-online').innerHTML = onlineEmps.map(e => `<div class="list-item"><div class="list-item-name">${e.full_name} <span class="dot dot-green"></span></div><div class="list-item-meta">${e.department}</div></div>`).join('') || '<div class="list-empty">Нет сотрудников онлайн</div>';
+
+        const offlineEmps = emps.filter(e => !e.is_online);
+        document.getElementById('acc-offline').innerHTML = offlineEmps.map(e => `<div class="list-item"><div class="list-item-name">${e.full_name}</div><div class="list-item-meta">${e.department} • <span style="color: var(--text-soft)">${e.last_seen}</span></div></div>`).join('') || '<div class="list-empty">Все сотрудники онлайн</div>';
+    }
+</script>
+{% endblock %}

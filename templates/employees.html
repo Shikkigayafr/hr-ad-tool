@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
+        <div>
+            <h1 style="margin-bottom: 8px;">Список сотрудников</h1>
+            <p style="margin: 0;">Управление учётными записями стажёров и сотрудников.</p>
+        </div>
+        
+        <!-- Блок поиска и экспорта -->
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <a href="/api/employees/export" class="btn-export">📥 Скачать Excel/CSV</a>
+            
+            <div class="search-box">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="search-input" placeholder="Поиск по ФИО или роли..." oninput="filterTable()">
+            </div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="emp-table">
+            <thead>
+                <tr>
+                    <th>ФИО</th>
+                    <th>Роль</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="emp-body">
+                <!-- Скелетон -->
+                <tr class="skeleton-row"><td colspan="3"><span class="skeleton" style="width:60%"></span></td></tr>
+                <tr class="skeleton-row"><td colspan="3"><span class="skeleton" style="width:40%"></span></td></tr>
+                <tr class="skeleton-row"><td colspan="3"><span class="skeleton" style="width:75%"></span></td></tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allEmployees = []; // Глобальный массив для хранения всех сотрудников
+
+    function initials(name) {
+        return (name || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    }
+    
+    function roleBadge(role) {
+        const map = {
+            'Sbis_Stager': ['badge-stager', 'Стажер'],
+            'Sbis_Main':   ['badge-main',   'Основной'],
+            'Sbis_Senior': ['badge-senior', 'Старший'],
+            'admin':       ['badge-admin',  'Админ'],
+        };
+        const [cls, label] = map[role] || ['badge-main', role];
+        return `<span class="badge ${cls}">${label}</span>`;
+    }
+
+    // Загрузка данных
+    async function loadEmployees() {
+        const tbody = document.getElementById('emp-body');
+        try {
+            const res = await fetch('/api/employees');
+            const data = await res.json();
+            if (!data.ok) { window.location.href = '/'; return; }
+
+            allEmployees = data.employees; // Сохраняем в массив
+            filterTable(); // Вызываем рендер через функцию фильтрации
+            
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="3" class="table-empty">Не удалось загрузить список</td></tr>';
+        }
+    }
+
+    // Фильтрация и отрисовка
+    function filterTable() {
+        const query = document.getElementById('search-input').value.toLowerCase().trim();
+        const tbody = document.getElementById('emp-body');
+        
+        // Фильтруем массив
+        const filtered = allEmployees.filter(emp => {
+            const matchName = emp.full_name.toLowerCase().includes(query);
+            const matchRole = emp.role.toLowerCase().includes(query);
+            return matchName || matchRole;
+        });
+
+        tbody.innerHTML = '';
+
+        // Если ничего не нашли
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" style="padding: 40px; text-align: center; color: var(--text-soft);">
+                        <div style="font-size: 24px; margin-bottom: 10px;">🔍</div>
+                        По запросу «${query}» ничего не найдено
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Если вообще нет сотрудников в базе
+        if (allEmployees.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" style="padding: 0;">
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                            <h3>Здесь пока пусто</h3>
+                            <p>Создайте первого сотрудника, чтобы он появился в списке.</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Отрисовываем отфильтрованные строки
+        filtered.forEach((emp, i) => {
+            const tr = document.createElement('tr');
+            tr.style.animationDelay = (i * 20) + 'ms'; // Быстрая анимация появления
+            tr.innerHTML = `
+                <td data-label="ФИО">
+                    <div class="cell-user">
+                        <span class="avatar">${initials(emp.full_name)}</span>
+                        <span>${emp.full_name}</span>
+                    </div>
+                </td>
+                <td data-label="Роль">${roleBadge(emp.role)}</td>
+                <td data-label="Действия">
+                    <button class="btn-small" onclick="promoteEmp(${emp.id})">Повысить</button>
+                    <button class="btn-small btn-danger" onclick="deleteEmp(${emp.id}, '${emp.full_name.replace(/'/g, "\\'")}')">Удалить</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function promoteEmp(id) {
+        const res = await fetch(`/api/employee/${id}/promote`, {method: 'POST'});
+        const data = await res.json();
+        toast(data.message, data.ok);
+        if (data.ok) loadEmployees();
+    }
+
+    async function deleteEmp(id, name) {
+        if (!confirm(`Удалить сотрудника ${name}?`)) return;
+        const res = await fetch(`/api/employee/${id}`, {method: 'DELETE'});
+        const data = await res.json();
+        toast(data.message, data.ok);
+        if (data.ok) loadEmployees();
+    }
+
+    loadEmployees();
+</script>
+{% endblock %}

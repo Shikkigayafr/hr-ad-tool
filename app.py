@@ -379,5 +379,5 @@ def init_db():
     print("БД создана!")
 
 if __name__ == "__main__":
-    # ВАЖНО: используем socketio.run вместо app.run!
-    socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+    # ВАЖНО: добавляем allow_unsafe_werkzeug=True для Docker
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)

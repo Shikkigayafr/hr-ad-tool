@@ -1,0 +1,10 @@
+.venv/
+instance/
+__pycache__/
+*.pyc
+.env
+.git/
+.gitignore
+README.md
+check_*.py
+test_*.py

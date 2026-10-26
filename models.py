@@ -35,3 +35,10 @@ class ActionLog(db.Model):
     department = db.Column(db.String(100), nullable=True) # ОТДЕЛ ТОГО, КТО СДЕЛАЛ
     action = db.Column(db.String(200), nullable=False)    
     timestamp = db.Column(db.DateTime, default=datetime.utcnow) 
+
+class LoginHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), nullable=False) # Кто пытался войти
+    ip_address = db.Column(db.String(50), nullable=True) # С какого IP
+    success = db.Column(db.Boolean, default=False) # Успешно или нет
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow) # Когда

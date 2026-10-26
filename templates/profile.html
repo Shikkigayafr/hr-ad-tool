@@ -61,6 +61,24 @@
             </div>
         </div>
     </div>
+
+    <!-- История входов (добавлена внизу) -->
+    <h2 style="margin-top: 40px; margin-bottom: 20px;">История входов</h2>
+    <div class="settings-card" style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <th style="text-align: left; padding: 10px; font-size: 13px; color: var(--text-muted);">Пользователь</th>
+                    <th style="text-align: left; padding: 10px; font-size: 13px; color: var(--text-muted);">IP-адрес</th>
+                    <th style="text-align: left; padding: 10px; font-size: 13px; color: var(--text-muted);">Статус</th>
+                    <th style="text-align: left; padding: 10px; font-size: 13px; color: var(--text-muted);">Время</th>
+                </tr>
+            </thead>
+            <tbody id="login-history-body">
+                <tr><td colspan="4" class="loading-text">Загрузка...</td></tr>
+            </tbody>
+        </table>
+    </div>
 {% endblock %}
 
 {% block scripts %}
@@ -82,6 +100,31 @@
                     } else {
                         avatarDiv.textContent = displayName.substring(0, 2).toUpperCase();
                     }
+                }
+            });
+            
+        // Загрузка истории входов
+        fetch('/api/login_history')
+            .then(res => res.json())
+            .then(data => {
+                if (data.ok) {
+                    const tbody = document.getElementById('login-history-body');
+                    if (data.history.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-soft);">Пока нет записей</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = data.history.map(h => `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 10px; font-weight: 500;">${h.username}</td>
+                            <td style="padding: 10px; color: var(--text-muted); font-family: monospace;">${h.ip}</td>
+                            <td style="padding: 10px;">
+                                ${h.success 
+                                    ? '<span class="badge badge-senior">Успех</span>' 
+                                    : '<span class="badge badge-stager" style="background: rgba(239,68,68,.14); color: #ef4444; border-color: rgba(239,68,68,.35);">Отказ</span>'}
+                            </td>
+                            <td style="padding: 10px; color: var(--text-muted); font-size: 13px;">${h.time}</td>
+                        </tr>
+                    `).join('');
                 }
             });
     {% endif %}

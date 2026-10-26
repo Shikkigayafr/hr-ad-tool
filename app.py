@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 from ad_utils import create_user
-from models import db, User, Employee, ActionLog
+from models import db, User, Employee, ActionLog, LoginHistory
 import traceback
 import random
 import time
@@ -13,6 +13,7 @@ from flask.json.provider import DefaultJSONProvider
 from flask_socketio import SocketIO # <-- НОВОЕ
 from apscheduler.schedulers.background import BackgroundScheduler
 from backup_utils import backup_database
+
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_session"
@@ -161,6 +162,26 @@ def api_chart_data():
         counts.append(count)
     return jsonify({"ok": True, "labels": days, "data": counts})
 
+@app.route("/api/login_history")
+def get_login_history():
+    if not session.get('user_id'): return jsonify({"ok": False}), 401
+    
+    # Берем последние 10 записей
+    history = LoginHistory.query.order_by(LoginHistory.timestamp.desc()).limit(10).all()
+    result = []
+    
+    for h in history:
+        # Форматируем дату
+        date_str = h.timestamp.strftime("%d.%m.%Y %H:%M") if h.timestamp else ""
+        result.append({
+            "username": h.username,
+            "ip": h.ip_address or "Неизвестно",
+            "success": h.success,
+            "time": date_str
+        })
+        
+    return jsonify({"ok": True, "history": result})
+
 @app.route("/api/employees/export", methods=["GET"])
 def export_employees():
     if 'user_id' not in session: return jsonify({"ok": False}), 401
@@ -183,6 +204,9 @@ def login():
     lockout_until = session.get('lockout_until', 0)
     now = time.time()
     
+    # Получаем IP (с учетом прокси, если есть)
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+
     if now < lockout_until:
         wait_seconds = int(lockout_until - now)
         return jsonify({"ok": False, "message": f"Заблокировано. Ждите {wait_seconds // 60} мин. {wait_seconds % 60} сек."}), 429
@@ -201,8 +225,17 @@ def login():
         session['department'] = user.department
         session['username'] = user.username
         session['first_name'] = user.first_name
+        
+        # ЛОГ: Успешный вход
+        db.session.add(LoginHistory(username=username, ip_address=ip, success=True))
+        db.session.commit()
+        
         return jsonify({"ok": True, "role": user.role})
     
+    # ЛОГ: Неудачный вход
+    db.session.add(LoginHistory(username=username, ip_address=ip, success=False))
+    db.session.commit()
+
     attempts = session.get('login_attempts', 0) + 1
     session['login_attempts'] = attempts
 

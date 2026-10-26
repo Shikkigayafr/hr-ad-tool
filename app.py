@@ -11,6 +11,8 @@ from io import StringIO
 import json
 from flask.json.provider import DefaultJSONProvider
 from flask_socketio import SocketIO # <-- НОВОЕ
+from apscheduler.schedulers.background import BackgroundScheduler
+from backup_utils import backup_database
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_session"
@@ -31,6 +33,24 @@ db.init_app(app)
 
 # Инициализация SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# --- НАСТРОЙКА БЭКАПОВ ---
+def start_backup_scheduler(app):
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(
+        func=backup_database, 
+        trigger="cron", 
+        hour=3, 
+        minute=0, 
+        args=[app]
+    )
+    scheduler.start()
+    print("✅ Планировщик бэкапов запущен (каждый день в 03:00)")
+
+# Запускаем его только в production (чтобы не дублировалось при debug=True)
+if os.environ.get('FLASK_ENV') == 'production' or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+    start_backup_scheduler(app)
+# --------------------------
 
 # --- СТРАНИЦЫ ---
 @app.route("/")
@@ -244,7 +264,6 @@ def create():
         
         db.session.commit()
 
-        # --- ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ВСЕМ ЧЕРЕЗ SOCKET.IO ---
         socketio.emit('new_log', {
             'user': actor_name, 
             'action': f"создал сотрудника {full_name}",
@@ -359,10 +378,26 @@ def upload_avatar():
         return jsonify({"ok": True, "message": "Аватарка обновлена!", "filename": filename})
     return jsonify({"ok": False, "message": "Только JPG и PNG"}), 400
 
+@app.route("/health")
+def health_check():
+    # Простой ответ, что сервер жив
+    return jsonify({"status": "ok"}), 200
+
 @app.errorhandler(Exception)
 def handle_exception(e):
     traceback.print_exc()
-    return jsonify({"ok": False, "message": str(e)}), 500
+    if request.path.startswith('/api/'):
+        return jsonify({"ok": False, "message": str(e)}), 500
+    return render_template('500.html'), 500
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('500.html'), 500
 
 @app.cli.command("init-db")
 def init_db():
@@ -379,5 +414,4 @@ def init_db():
     print("БД создана!")
 
 if __name__ == "__main__":
-    # ВАЖНО: добавляем allow_unsafe_werkzeug=True для Docker
     socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)

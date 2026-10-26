@@ -5,3 +5,4 @@ __pycache__/
 hr.db
 instance/
 .vscode/
+backups/

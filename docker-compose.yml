@@ -9,8 +9,28 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
-    # Монтируем папки, чтобы база данных и аватарки сохранялись между перезапусками
     volumes:
       - ./instance:/app/instance
       - ./static/avatars:/app/static/avatars
+      - ./backups:/app/backups
     restart: unless-stopped
+    # --- НОВОЕ: Healthcheck ---
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    # Метка для autoheal, чтобы он следил именно за этим контейнером
+    labels:
+      - "autoheal=true"
+
+  # --- НОВОЕ: Сайдкар для перезапуска unhealthy контейнеров ---
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

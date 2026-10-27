@@ -6,3 +6,6 @@ hr.db
 instance/
 .vscode/
 backups/
+logs/
+secrets/
+*.log

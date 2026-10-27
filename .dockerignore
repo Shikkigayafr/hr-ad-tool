@@ -13,3 +13,5 @@ CLAUDE.md
 PROGRESS.md
 TROUBLESHOOTING.md
 requirements-dev.txt
+logs/
+secrets/

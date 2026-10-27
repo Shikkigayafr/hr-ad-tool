@@ -1,22 +1,53 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: hr_ad_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hrpanel
+      POSTGRES_USER: hrpanel
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrpanel -d hrpanel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   hr-ad-panel:
     build: .
     container_name: hr_ad_panel
     ports:
       - "5000:5000"
-    # .env с паролями AD/Saby подхватывается при запуске (в образ не копируется)
+    depends_on:
+      db:
+        condition: service_healthy
+    # Несекретные настройки (DRY_RUN, AD_SERVER и т.д.) — в .env. Пароли — в secrets/ (см. ниже)
     env_file:
       - path: .env
         required: false
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=hrpanel
+      - POSTGRES_DB=hrpanel
+      - LOG_DIR=/app/logs
+    # Приложение читает секреты из /run/secrets/<имя> (см. secret_utils.py)
+    secrets:
+      - secret_key
+      - postgres_password
+      - ad_password
+      - saby_password
     volumes:
-      - ./instance:/app/instance
       - ./static/avatars:/app/static/avatars
-      - ./backups:/app/backups
+      - ./logs:/app/logs
+      - ./instance:/app/instance      # нужен только для переноса старой SQLite-базы (scripts/sqlite_to_postgres.py)
     restart: unless-stopped
-    # --- НОВОЕ: Healthcheck ---
+    # --- Healthcheck ---
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 30s
@@ -27,7 +58,33 @@ services:
     labels:
       - "autoheal=true"
 
-  # --- НОВОЕ: Сайдкар для перезапуска unhealthy контейнеров ---
+  # --- Ежедневный pg_dump (хранится 7 последних копий в ./backups) ---
+  db-backup:
+    image: postgres:16-alpine
+    container_name: hr_ad_db_backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    secrets:
+      - postgres_password
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/hr_$$(date +%Y-%m-%d_%H-%M).sql
+          if PGPASSWORD="$$(cat /run/secrets/postgres_password)" pg_dump -h db -U hrpanel -f "$$f" hrpanel; then
+            gzip -f "$$f" && echo "backup ok: $$f.gz"
+          else
+            rm -f "$$f"; echo "backup FAILED"
+          fi
+          ls -1t /backups/hr_*.sql.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
+          sleep 86400
+        done
+
+  # --- Сайдкар для перезапуска unhealthy контейнеров ---
   autoheal:
     image: willfarrell/autoheal:latest
     container_name: autoheal
@@ -36,3 +93,17 @@ services:
       - AUTOHEAL_CONTAINER_LABEL=autoheal
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  pgdata:
+
+# Docker secrets: файлы создаёт `python scripts/init_secrets.py`; в git они не попадают (.gitignore)
+secrets:
+  secret_key:
+    file: ./secrets/secret_key.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  ad_password:
+    file: ./secrets/ad_password.txt
+  saby_password:
+    file: ./secrets/saby_password.txt

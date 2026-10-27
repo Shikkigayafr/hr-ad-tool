@@ -1,6 +1,7 @@
 import getpass
 
-from app import app, password_error
+from app import app
+from hrpanel.validators import password_error
 from models import db, User
 
 with app.app_context():

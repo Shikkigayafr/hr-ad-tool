@@ -43,6 +43,23 @@
     </div>
 
     <div id="pager" style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px;"></div>
+
+    <!-- Окно с новым паролем: показывается один раз, на сервере пароль не хранится -->
+    <div id="pwd-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Пароль сброшен</h2>
+            <p id="pwd-modal-text" style="margin-bottom: 12px;"></p>
+            <div class="input-group">
+                <input id="pwd-modal-value" readonly style="font-family: monospace; font-size: 16px;">
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 8px 0 16px;">
+                Передайте пароль сотруднику лично. При первом входе система попросит его сменить.
+                После закрытия окна пароль больше нигде не отображается.
+            </p>
+            <button type="button" class="btn-block" onclick="copyNewPassword(this)">Копировать</button>
+            <button type="button" class="btn-secondary btn-block" onclick="closePasswordModal()">Закрыть</button>
+        </div>
+    </div>
 {% endblock %}
 
 {% block scripts %}
@@ -164,6 +181,7 @@
             const tr = document.createElement('tr');
             tr.style.animationDelay = (i * 20) + 'ms'; // Быстрая анимация появления
             const canPromote = emp.role === 'Sbis_Stager' && myRole !== 'hr';
+            const canReset = myRole !== 'hr' || emp.role === 'Sbis_Stager'; // HR сбрасывает пароль только стажёрам
             tr.innerHTML = `
                 <td data-label="ФИО">
                     <div class="cell-user">
@@ -176,6 +194,7 @@
                 <td data-label="Создан">${esc(fmtDate(emp.created_at))}</td>
                 <td data-label="Действия">
                     ${canPromote ? `<button class="btn-small" data-action="promote" data-id="${emp.id}">Повысить</button>` : ''}
+                    ${canReset ? `<button class="btn-small btn-secondary" data-action="reset" data-id="${emp.id}">Пароль</button>` : ''}
                     <button class="btn-small btn-danger" data-action="delete" data-id="${emp.id}">Удалить</button>
                 </td>
             `;
@@ -197,7 +216,46 @@
         const id = Number(btn.dataset.id);
         if (btn.dataset.action === 'promote') promoteEmp(id);
         if (btn.dataset.action === 'delete') deleteEmp(id);
+        if (btn.dataset.action === 'reset') resetPassword(id, btn);
     });
+
+    async function resetPassword(id, btn) {
+        const emp = allEmployees.find(e => e.id === id);
+        if (!emp || !confirm(`Сбросить пароль сотрудника ${emp.full_name}? Будет сгенерирован новый.`)) return;
+        btn.disabled = true;
+        try {
+            const res = await fetch(`/api/employee/${id}/reset-password`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({})
+            });
+            const data = await res.json();
+            if (!data.ok) { toast(data.message, false); return; }
+            document.getElementById('pwd-modal-text').textContent = `Новый пароль для ${emp.full_name}:`;
+            document.getElementById('pwd-modal-value').value = data.password;
+            document.getElementById('pwd-modal').classList.add('is-open');
+        } catch (e) {
+            toast('Ошибка сети', false);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function copyNewPassword(btn) {
+        const input = document.getElementById('pwd-modal-value');
+        try {
+            await navigator.clipboard.writeText(input.value);
+            toast('Пароль скопирован', true);
+        } catch (e) {
+            input.select(); // запасной вариант, если буфер обмена недоступен
+            toast('Выделено — нажмите Ctrl+C', true);
+        }
+    }
+
+    function closePasswordModal() {
+        document.getElementById('pwd-modal').classList.remove('is-open');
+        document.getElementById('pwd-modal-value').value = '';
+    }
 
     async function promoteEmp(id) {
         const res = await fetch(`/api/employee/${id}/promote`, {method: 'POST'});

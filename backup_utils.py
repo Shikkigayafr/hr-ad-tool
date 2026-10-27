@@ -9,6 +9,11 @@ logger = logging.getLogger('apscheduler')
 logger.setLevel(logging.INFO)
 
 def backup_database(app):
+    # Копирование файла работает только для SQLite; PostgreSQL бэкапится сервисом db-backup (pg_dump)
+    if not str(app.config.get('SQLALCHEMY_DATABASE_URI', '')).startswith('sqlite'):
+        logger.info("БД не SQLite — файловый бэкап пропущен (используйте pg_dump)")
+        return
+
     # Папка, где лежит база (instance) и куда будем класть бэкапы
     instance_dir = os.path.join(app.root_path, 'instance')
     backup_dir = os.path.join(app.root_path, 'backups')

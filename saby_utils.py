@@ -1,13 +1,14 @@
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+from secret_utils import read_secret
 from pysaby import SABYManager
 from saby_config import SABY_DEPARTMENTS, SABY_ORG_INN, SABY_DEPARTMENT_UUIDS
 
 load_dotenv()
 
 SABY_LOGIN = os.getenv("SABY_LOGIN")
-SABY_PASSWORD = os.getenv("SABY_PASSWORD")
+SABY_PASSWORD = read_secret("SABY_PASSWORD")
 
 def create_saby_user(full_name, login, password, department_name, position_id="305d7061-926c-4661-b502-cc6750ae956c"):
     dept_id = SABY_DEPARTMENTS.get(department_name)

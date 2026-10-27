@@ -6,11 +6,13 @@ import os
 import ssl
 from dotenv import load_dotenv
 
+from secret_utils import read_secret
+
 load_dotenv()
 
 AD_SERVER = os.getenv("AD_SERVER", "ldaps://192.168.88.10")
 AD_USER = os.getenv("AD_USER", "svc_hr@yourdomain.local")
-AD_PASSWORD = os.getenv("AD_PASSWORD", "ChangeMe123!")
+AD_PASSWORD = read_secret("AD_PASSWORD", "ChangeMe123!")
 BASE_DN = os.getenv("BASE_DN", "DC=yourdomain,DC=local")
 USERS_OU = os.getenv("USERS_OU", "OU=NewUsers,DC=yourdomain,DC=local")
 
@@ -148,5 +150,29 @@ def delete_user(login: str):
         if not conn.delete(dn):
             return False, f"Не удалось удалить из AD: {conn.result}"
         return True, "Удалён из AD"
+    finally:
+        conn.unbind()
+
+
+def reset_password(login: str, new_password: str, must_change: bool = True):
+    """Сбрасывает пароль учётки в AD, снимает блокировку и (по умолчанию)
+    требует сменить пароль при следующем входе (pwdLastSet = 0)."""
+    if DRY_RUN:
+        print(f"[DRY-RUN] Сбросил бы пароль {login} (смена при входе: {must_change})")
+        return True, "УСПЕХ (Режим теста)"
+
+    conn = get_connection()
+    try:
+        dn = _find_dn(conn, login)
+        if not dn:
+            return False, f"Пользователь {login} не найден в AD"
+        if not ad_modify_password(conn, dn, new_password, old_password=None):
+            return False, f"Ошибка сброса пароля: {conn.result}"
+        changes = {"lockoutTime": [(MODIFY_REPLACE, ["0"])]}
+        if must_change:
+            changes["pwdLastSet"] = [(MODIFY_REPLACE, ["0"])]
+        if not conn.modify(dn, changes):
+            return True, f"Пароль сброшен, но не удалось снять блокировку/включить смену пароля: {conn.result}"
+        return True, "Пароль сброшен"
     finally:
         conn.unbind()

@@ -7,7 +7,7 @@ db = SQLAlchemy()
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)  # scrypt-хеш ~160 символов; PostgreSQL длину проверяет
     first_name = db.Column(db.String(50), nullable=True)
     avatar = db.Column(db.String(200), nullable=True)
     
@@ -26,7 +26,9 @@ class Employee(db.Model):
     login = db.Column(db.String(80), unique=True, nullable=False)
     department = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(50), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow) 
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (db.Index('ix_employee_department', 'department'),)
 
 class ActionLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -34,7 +36,9 @@ class ActionLog(db.Model):
     user_role = db.Column(db.String(20), nullable=False)  # РОЛЬ ТОГО, КТО СДЕЛАЛ
     department = db.Column(db.String(100), nullable=True) # ОТДЕЛ ТОГО, КТО СДЕЛАЛ
     action = db.Column(db.String(200), nullable=False)    
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow) 
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (db.Index('ix_action_log_department', 'department'),)
 
 class LoginHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -42,3 +46,6 @@ class LoginHistory(db.Model):
     ip_address = db.Column(db.String(50), nullable=True) # С какого IP
     success = db.Column(db.Boolean, default=False) # Успешно или нет
     timestamp = db.Column(db.DateTime, default=datetime.utcnow) # Когда
+
+    # Блокировка входа считает неудачные попытки по (ip, username, время)
+    __table_args__ = (db.Index('ix_login_history_lookup', 'ip_address', 'username', 'timestamp'),)

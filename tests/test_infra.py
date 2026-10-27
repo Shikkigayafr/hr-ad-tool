@@ -187,7 +187,7 @@ def test_migrations_on_fresh_database_are_idempotent(tmp_path):
         result = run_cli(db_path, "upgrade-db")
         assert result.returncode == 0, result.stderr
     assert {"user", "employee", "action_log", "login_history", "alembic_version"} <= table_names(db_path)
-    assert alembic_version(db_path) == "0002"
+    assert alembic_version(db_path) == "0003"
 
 
 def test_migrations_adopt_legacy_database_created_before_alembic(tmp_path):
@@ -209,10 +209,10 @@ def test_migrations_adopt_legacy_database_created_before_alembic(tmp_path):
         """)
     result = run_cli(db_path, "upgrade-db")
     assert result.returncode == 0, result.stderr
-    assert alembic_version(db_path) == "0002"
-    with sqlite3.connect(db_path) as conn:   # данные на месте
-        assert conn.execute("select username from user").fetchall() == [("old_admin",)]
-        assert conn.execute("select full_name from employee").fetchall() == [("Старый Сотрудник",)]
+    assert alembic_version(db_path) == "0003"
+    with sqlite3.connect(db_path) as conn:   # данные на месте, новые колонки получили безопасные значения
+        assert conn.execute("select username, must_change_password from user").fetchall() == [("old_admin", 0)]
+        assert conn.execute("select full_name, is_active, disabled_at from employee").fetchall() == [("Старый Сотрудник", 1, None)]
 
 
 def test_init_db_creates_admin_with_given_password(tmp_path):

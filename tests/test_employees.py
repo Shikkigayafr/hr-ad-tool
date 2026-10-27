@@ -56,11 +56,11 @@ def test_hr_cannot_touch_other_department(as_user):
     admin = as_user("admin")
     create(admin, login_name="emp.b", department=DEPT_B)
     emp_id = admin.get("/api/employees").json["employees"][0]["id"]
-    assert as_user("hr_a").delete(f"/api/employee/{emp_id}").status_code == 404
+    assert as_user("hr_a").post(f"/api/employee/{emp_id}/disable", json={}).status_code == 404
     assert as_user("mgr_a").post(f"/api/employee/{emp_id}/promote").status_code == 404
 
 
-def test_hr_deletes_only_stagers_and_cannot_promote(as_user):
+def test_hr_disables_only_stagers_and_cannot_promote(as_user):
     admin = as_user("admin")
     create(admin, login_name="stager.a")
     create(admin, login_name="main.a", role="Sbis_Main")
@@ -68,8 +68,8 @@ def test_hr_deletes_only_stagers_and_cannot_promote(as_user):
 
     hr = as_user("hr_a")
     assert hr.post(f"/api/employee/{emps['Sbis_Stager']}/promote").status_code == 403
-    assert hr.delete(f"/api/employee/{emps['Sbis_Main']}").status_code == 403
-    assert hr.delete(f"/api/employee/{emps['Sbis_Stager']}").status_code == 200
+    assert hr.post(f"/api/employee/{emps['Sbis_Main']}/disable", json={}).status_code == 403
+    assert hr.post(f"/api/employee/{emps['Sbis_Stager']}/disable", json={}).status_code == 200
 
 
 def test_manager_promotes_in_own_department(as_user):

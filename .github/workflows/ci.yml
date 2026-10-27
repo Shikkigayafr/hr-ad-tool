@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Новый пуш отменяет ещё идущую проверку той же ветки
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Тесты (Python ${{ matrix.python }}, SQLite)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  tests-postgres:
+    name: Тесты (PostgreSQL 16)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hrpanel
+          POSTGRES_PASSWORD: hrpanel
+          POSTGRES_DB: hrpanel
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hrpanel -d hrpanel"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://hrpanel:hrpanel@localhost:5432/hrpanel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  docker:
+    name: Docker-образ и compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Проверка docker-compose.yml (с временными секретами)
+        run: |
+          python scripts/init_secrets.py
+          docker compose config -q
+      - name: Сборка образа
+        run: docker build -t hr-ad-panel:ci .
+      - name: Запуск образа и проверка /health (миграции + gunicorn)
+        run: |
+          docker run -d --name smoke -p 5000:5000 \
+            -e DRY_RUN=true -e SECRET_KEY=ci-secret -e LOG_TO_FILE=false hr-ad-panel:ci
+          for i in $(seq 1 30); do curl -sf http://localhost:5000/health && exit 0; sleep 2; done
+          echo "Приложение не поднялось"; docker logs smoke; exit 1
+      - name: Работает не от root
+        run: test "$(docker exec smoke id -u)" != "0"
+
+  powershell:
+    name: Синтаксис PowerShell-скриптов
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Разбор всех .ps1 парсером (скрипты не выполняются)
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem infra -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null; $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              $errors | ForEach-Object { Write-Host "::error file=$($_.Extent.File),line=$($_.Extent.StartLineNumber)::$($_.Message)" }
+            } else { Write-Host "OK  $($_.Name)" }
+          }
+          if ($failed) { exit 1 }

@@ -21,7 +21,7 @@ Flask-панель, через которую HR создаёт учётные �
 - `templates/`, `static/` — Jinja, чистый JS, `style.css`. Все данные из API вставляются через `esc()` (в `base.html`).
 - `migrations/`, `scripts/` (`init_secrets.py`, `sqlite_to_postgres.py`), `tests/`.
 - `infra/` — `inventory/` (инвентаризация ПК без домена), `ad/` (структура AD, GPO как код; `structure.json` обязан совпадать с `saby_config.py` — это проверяет тест), `deploy/` (раздача программ через GPO). Все `.ps1` — в UTF-8 **с BOM** (иначе Windows PowerShell 5.1 портит кириллицу), `.bat` — только ASCII.
-- Корневые `test_*.py`, `get_saby_*.py`, `check_logs.py` — разовые отладочные скрипты для боевого Saby, **не тесты** (`pytest.ini`).
+- `scripts/saby_debug/` — разовые отладочные скрипты (`probe_*.py`, `get_*.py`) для **боевого** Saby, не тесты (`pytest.ini` собирает только `tests/`). Запускать вручную из корня проекта: `python scripts/saby_debug/get_ids.py`. `scripts/check_logs.py` — вывод журнала из БД.
 
 ## Роли и права
 - `admin` — всё, управляет пользователями панели (`/users`), создаёт Старших.
@@ -61,7 +61,7 @@ Flask-панель, через которую HR создаёт учётные �
 - Windows Home в домен не вводится — `infra/inventory` покажет, где какая редакция.
 - Проверка сертификата LDAPS включается переменной `AD_CA_CERTS_FILE` (путь к PEM с сертификатом DC); пока она не задана, работает режим `CERT_NONE` с предупреждением. Включить на работе и проверить.
 - Нет метрик (Prometheus/Zabbix) — отложено, пока нет Zabbix/Grafana.
-- `create_admin.py` — старая утилита; админа лучше заводить через `init-db`.
+- `scripts/create_admin.py` — старая утилита; админа лучше заводить через `init-db`.
 
 ## Правила работы
 - Не запускать скрипты, создающие/меняющие записи в боевом Saby или AD, без явного согласия владельца.

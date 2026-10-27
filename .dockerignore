@@ -6,8 +6,7 @@ __pycache__/
 .git/
 .gitignore
 README.md
-check_*.py
-test_*.py
+scripts/saby_debug/
 tests/
 CLAUDE.md
 PROGRESS.md

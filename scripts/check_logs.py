@@ -1,4 +1,9 @@
-﻿from app import app
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # корень проекта
+
+from app import app
 from models import ActionLog
 
 with app.app_context():

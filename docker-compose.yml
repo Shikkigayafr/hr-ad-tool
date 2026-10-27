@@ -43,9 +43,20 @@ services:
       - ad_password
       - saby_password
     volumes:
-      - ./static/avatars:/app/static/avatars
-      - ./logs:/app/logs
-      - ./instance:/app/instance      # нужен только для переноса старой SQLite-базы (scripts/sqlite_to_postgres.py)
+      # Именованные тома: Docker копирует в них права из образа (запись для пользователя app, uid 10001)
+      - avatars:/app/static/avatars
+      - logs:/app/logs
+      - ./instance:/app/instance:ro   # нужен только для переноса старой SQLite-базы (scripts/sqlite_to_postgres.py)
+    # --- Жёсткие настройки контейнера: файловая система только для чтения, без лишних прав ---
+    read_only: true
+    tmpfs:
+      - /tmp                          # gunicorn пишет сюда служебные файлы
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
     restart: unless-stopped
     # --- Healthcheck ---
     healthcheck:
@@ -70,6 +81,9 @@ services:
       - postgres_password
     volumes:
       - ./backups:/backups
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -96,6 +110,8 @@ services:
 
 volumes:
   pgdata:
+  avatars:
+  logs:
 
 # Docker secrets: файлы создаёт `python scripts/init_secrets.py`; в git они не попадают (.gitignore)
 secrets:

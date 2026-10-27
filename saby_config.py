@@ -8,20 +8,20 @@ SABY_ORG_INN = os.getenv("SABY_ORG_INN")
 
 # Читаем числовые ID отделов из окружения
 SABY_DEPARTMENTS = {
-    "Отдел горячих продаж": os.getenv("SABY_DEPT_HOT_SALES", "158456"),
-    "Стажеры ТП": os.getenv("SABY_DEPT_STAGERS_TP", "136943"),
-    "Колл Центр": os.getenv("SABY_DEPT_CALL_CENTER", "128206"),
-    "Координатор": os.getenv("SABY_DEPT_COORDINATOR", "104978"),
-    "СММ": os.getenv("SABY_DEPT_SMM", "76240"),
-    "Контроль качества": os.getenv("SABY_DEPT_QUALITY", "75844"),
-    "Продление": os.getenv("SABY_DEPT_PROLONG", "69749"),
-    "Офис": os.getenv("SABY_DEPT_OFFICE", "66287"),
-    "Отдел исходящих звонков": os.getenv("SABY_DEPT_OUTGOING", "65610"),
-    "Отдел входящих звонков": os.getenv("SABY_DEPT_INCOMING", "65609"),
-    "Отдел развития": os.getenv("SABY_DEPT_DEVELOPMENT", "15700"),
-    "Техническая поддержка": os.getenv("SABY_DEPT_TECH_SUPPORT", "8162"),
-    "Облако": os.getenv("SABY_DEPT_CLOUD", "82298"),
-    "Удаленные": os.getenv("SABY_DEPT_REMOTE", "150651"),
+    "Отдел горячих продаж": os.getenv("SABY_DEPT_HOT_SALES") or "158456",
+    "Стажеры ТП": os.getenv("SABY_DEPT_STAGERS_TP") or "136943",
+    "Колл Центр": os.getenv("SABY_DEPT_CALL_CENTER") or "128206",
+    "Координатор": os.getenv("SABY_DEPT_COORDINATOR") or "104978",
+    "СММ": os.getenv("SABY_DEPT_SMM") or "76240",
+    "Контроль качества": os.getenv("SABY_DEPT_QUALITY") or "75844",
+    "Продление": os.getenv("SABY_DEPT_PROLONG") or "69749",
+    "Офис": os.getenv("SABY_DEPT_OFFICE") or "66287",
+    "Отдел исходящих звонков": os.getenv("SABY_DEPT_OUTGOING") or "65610",
+    "Отдел входящих звонков": os.getenv("SABY_DEPT_INCOMING") or "65609",
+    "Отдел развития": os.getenv("SABY_DEPT_DEVELOPMENT") or "15700",
+    "Техническая поддержка": os.getenv("SABY_DEPT_TECH_SUPPORT") or "8162",
+    "Облако": os.getenv("SABY_DEPT_CLOUD") or "82298",
+    "Удаленные": os.getenv("SABY_DEPT_REMOTE") or "150651",
 }
 
 # UUID подразделений (ВнешнийИдентификатор / extId из СБИС.СписокПодразделений)

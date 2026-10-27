@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 from pysaby import SABYManager
 from saby_config import SABY_DEPARTMENTS, SABY_ORG_INN, SABY_DEPARTMENT_UUIDS
@@ -14,6 +15,8 @@ def create_saby_user(full_name, login, password, department_name, position_id="3
     
     if not dept_id or not dept_uuid:
         return False, f"Отдел '{department_name}' не найден"
+
+    today = datetime.now().strftime("%d.%m.%Y")
 
     try:
         manager = SABYManager(login=SABY_LOGIN, password=SABY_PASSWORD)
@@ -35,7 +38,7 @@ def create_saby_user(full_name, login, password, department_name, position_id="3
                     "ДоступВСистему": "Да",
                     "ИдентификаторИС": login,
                     "ВнешнийИдентификатор": login,
-                    "ДатаПриема": "22.10.2026",
+                    "ДатаПриема": today,
                     "ТипТрудоустройства": "Основное место работы",
                     "НашаОрганизация": {"СвФЛ": {"ИНН": SABY_ORG_INN}},
                     "Должность": {
@@ -65,7 +68,7 @@ def create_saby_user(full_name, login, password, department_name, position_id="3
                     "kpp": ""
                 },
                 "position": {
-                    "dateFrom": "22.10.2026",
+                    "dateFrom": today,
                     "organization": {
                         "inn": SABY_ORG_INN,
                         "kpp": ""

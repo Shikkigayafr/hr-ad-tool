@@ -1,0 +1,5 @@
+# Файлы, которые выполняются в Linux-контейнерах, всегда с LF (иначе CRLF ломает shell-скрипты в compose)
+docker-compose.yml text eol=lf
+Dockerfile text eol=lf
+*.sh text eol=lf
+*.mako text eol=lf

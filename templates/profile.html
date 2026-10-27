@@ -8,6 +8,11 @@
         </div>
     </div>
 
+    <div id="force-banner" style="display: none; margin-bottom: 20px; padding: 14px 18px; border-radius: 12px; background: rgba(245,158,11,.14); border: 1px solid rgba(245,158,11,.4);">
+        <strong>Нужно сменить временный пароль.</strong>
+        Пароль вам выдал администратор. Пока вы не зададите свой, остальные разделы панели недоступны.
+    </div>
+
     <div class="profile-layout">
         <!-- Левая колонка: Аватар и данные -->
         <div class="profile-sidebar">
@@ -88,6 +93,10 @@
             .then(res => res.json())
             .then(data => {
                 if (data.ok) {
+                    if (data.must_change_password) {
+                        document.getElementById('force-banner').style.display = '';
+                        document.getElementById('old_password').focus();
+                    }
                     document.getElementById('first_name').value = data.first_name || '';
                     document.getElementById('display-username').textContent = data.username;
                     document.getElementById('role-badge').textContent =
@@ -213,6 +222,10 @@
                 document.getElementById('old_password').value = '';
                 document.getElementById('new_password').value = '';
                 document.getElementById('confirm_password').value = '';
+                // временный пароль заменён — открываем остальные разделы
+                if (document.getElementById('force-banner').style.display !== 'none') {
+                    setTimeout(() => { window.location.href = '/'; }, 1200);
+                }
             }
         } catch (e) {
             toast('Ошибка сети', false);

@@ -12,7 +12,8 @@ bp = Blueprint("panel_users", __name__)
 
 
 def serialize_user(u):
-    return {"id": u.id, "username": u.username, "first_name": u.first_name, "role": u.role, "department": u.department}
+    return {"id": u.id, "username": u.username, "first_name": u.first_name, "role": u.role,
+            "department": u.department, "must_change_password": u.must_change_password}
 
 
 @bp.route("/api/users", methods=["GET"])
@@ -46,7 +47,8 @@ def create_panel_user():
     if User.query.filter(db.func.lower(User.username) == username.lower()).first():
         return jsonify({"ok": False, "message": "Такой логин уже занят"}), 409
 
-    user = User(username=username, first_name=first_name, role=role, department=department)
+    user = User(username=username, first_name=first_name, role=role, department=department,
+                must_change_password=True)  # пароль выдал админ — пользователь обязан сменить его при входе
     user.set_password(password)
     db.session.add(user)
     log_action(f"создал пользователя панели {username} ({role})")
@@ -82,6 +84,7 @@ def reset_panel_user_password(user_id):
     if err:
         return jsonify({"ok": False, "message": err}), 400
     user.set_password(new_password)
+    user.must_change_password = user.id != g.user.id  # себе пароль задан осознанно, остальным — временный
     log_action(f"сбросил пароль пользователю {user.username}")
     db.session.commit()
     audit("panel_user_password_reset", username=user.username)

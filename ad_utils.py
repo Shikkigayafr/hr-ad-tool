@@ -1,9 +1,10 @@
 from ldap3 import Server, Connection, ALL, MODIFY_REPLACE, MODIFY_ADD, MODIFY_DELETE, Tls
 from ldap3.extend.microsoft.modifyPassword import ad_modify_password
-from ldap3.utils.dn import escape_rdn
+from ldap3.utils.dn import escape_rdn, safe_rdn
 from ldap3.utils.conv import escape_filter_chars
 import os
 import ssl
+from datetime import datetime
 from dotenv import load_dotenv
 
 from secret_utils import read_secret
@@ -19,6 +20,8 @@ USERS_OU = os.getenv("USERS_OU", "OU=NewUsers,DC=yourdomain,DC=local")
 # Домен для UPN (login@домен) и OU с группами безопасности
 AD_DOMAIN = os.getenv("AD_DOMAIN", "corp.local")
 GROUPS_OU = os.getenv("GROUPS_OU", f"OU=Groups,{BASE_DN}")
+# Сюда переезжают отключённые (уволенные) учётки
+DISABLED_OU = os.getenv("DISABLED_OU", f"OU=Disabled,{BASE_DN}")
 
 # Путь к PEM-файлу с сертификатом (или корневым CA), которому доверяем при LDAPS
 AD_CA_CERTS_FILE = os.getenv("AD_CA_CERTS_FILE") or None
@@ -174,5 +177,72 @@ def reset_password(login: str, new_password: str, must_change: bool = True):
         if not conn.modify(dn, changes):
             return True, f"Пароль сброшен, но не удалось снять блокировку/включить смену пароля: {conn.result}"
         return True, "Пароль сброшен"
+    finally:
+        conn.unbind()
+
+
+# userAccountControl: 512 = обычная включённая учётка, 514 = она же с флагом ACCOUNTDISABLE
+UAC_ENABLED, UAC_DISABLED = 512, 514
+
+
+def disable_user(login: str, reason: str = "", group_dn: str | None = None):
+    """Увольнение: отключает учётку, пишет причину в description, убирает из группы роли
+    и переносит в OU «Disabled». Саму учётку не удаляет — её можно вернуть (enable_user)."""
+    if DRY_RUN:
+        print(f"[DRY-RUN] Отключил бы {login} (причина: {reason or '—'})")
+        return True, "УСПЕХ (Режим теста)"
+
+    conn = get_connection()
+    try:
+        dn = _find_dn(conn, login)
+        if not dn:
+            return False, f"Пользователь {login} не найден в AD"
+
+        note = f"Отключён {datetime.now():%d.%m.%Y}: {reason or 'без причины'}"[:1024]
+        if not conn.modify(dn, {"userAccountControl": [(MODIFY_REPLACE, [UAC_DISABLED])],
+                                "description": [(MODIFY_REPLACE, [note])]}):
+            return False, f"Не удалось отключить учётку: {conn.result}"
+
+        warnings = []
+        if group_dn and not conn.modify(group_dn, {"member": [(MODIFY_DELETE, [dn])]}) \
+                and conn.result.get("description") != "unwillingToPerform":
+            warnings.append(f"не удалось убрать из группы: {conn.result}")
+        if not conn.modify_dn(dn, safe_rdn(dn)[0], new_superior=DISABLED_OU):
+            warnings.append(f"не удалось перенести в {DISABLED_OU}: {conn.result}")
+
+        return True, "Учётка отключена" + (" (" + "; ".join(warnings) + ")" if warnings else "")
+    finally:
+        conn.unbind()
+
+
+def enable_user(login: str, department: str, group_dn: str | None = None):
+    """Возвращает отключённую учётку: включает, очищает description, переносит обратно
+    в OU отдела и добавляет в группу роли."""
+    if DRY_RUN:
+        print(f"[DRY-RUN] Включил бы {login} обратно в отдел {department}")
+        return True, "УСПЕХ (Режим теста)"
+
+    conn = get_connection()
+    try:
+        dn = _find_dn(conn, login)
+        if not dn:
+            return False, f"Пользователь {login} не найден в AD"
+
+        if not conn.modify(dn, {"userAccountControl": [(MODIFY_REPLACE, [UAC_ENABLED])],
+                                "description": [(MODIFY_REPLACE, [])]}):
+            return False, f"Не удалось включить учётку: {conn.result}"
+
+        warnings = []
+        target_ou = f"OU={escape_rdn(department)},OU=Departments,{BASE_DN}"
+        if not conn.modify_dn(dn, safe_rdn(dn)[0], new_superior=target_ou):
+            warnings.append(f"не удалось перенести в {target_ou}: {conn.result}")
+            new_dn = dn
+        else:
+            new_dn = f"{safe_rdn(dn)[0]},{target_ou}"
+        if group_dn and not conn.modify(group_dn, {"member": [(MODIFY_ADD, [new_dn])]}) \
+                and conn.result.get("description") != "entryAlreadyExists":
+            warnings.append(f"не удалось вернуть в группу: {conn.result}")
+
+        return True, "Учётка включена" + (" (" + "; ".join(warnings) + ")" if warnings else "")
     finally:
         conn.unbind()

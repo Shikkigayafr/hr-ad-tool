@@ -12,7 +12,9 @@ class User(db.Model):
     avatar = db.Column(db.String(200), nullable=True)
     
     role = db.Column(db.String(20), nullable=False, default='hr') 
-    department = db.Column(db.String(100), nullable=True) 
+    department = db.Column(db.String(100), nullable=True)
+    # True — пользователь панели обязан сменить пароль при следующем входе (выдан админом)
+    must_change_password = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -27,6 +29,10 @@ class Employee(db.Model):
     department = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(50), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    # Увольнение = отключение учётки, а не удаление (можно вернуть)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+    disabled_at = db.Column(db.DateTime, nullable=True)
+    disabled_reason = db.Column(db.String(200), nullable=True)
 
     __table_args__ = (db.Index('ix_employee_department', 'department'),)
 

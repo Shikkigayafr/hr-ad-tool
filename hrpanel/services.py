@@ -31,8 +31,9 @@ def actor_name():
 
 def log_action(text):
     """Пишет событие в журнал (commit делает вызывающий код)."""
+    # В колонке 200 символов, PostgreSQL длину проверяет — длинные причины обрезаем
     db.session.add(ActionLog(user_name=actor_name(), user_role=g.user.role,
-                             department=g.user.department, action=text))
+                             department=g.user.department, action=text[:200]))
 
 
 def notify_action(text):

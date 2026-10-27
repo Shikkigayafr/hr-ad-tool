@@ -13,7 +13,8 @@ bp = Blueprint("auth", __name__)
 @bp.route("/api/me")
 def api_me():
     if g.user:
-        return jsonify({"ok": True, "role": g.user.role, "department": g.user.department})
+        return jsonify({"ok": True, "role": g.user.role, "department": g.user.department,
+                        "must_change_password": g.user.must_change_password})
     return jsonify({"ok": False}), 401
 
 
@@ -39,7 +40,7 @@ def login():
         db.session.add(LoginHistory(username=username, ip_address=ip, success=True))
         db.session.commit()
         audit("login_success", username=username, ip=ip, role=user.role)
-        return jsonify({"ok": True, "role": user.role})
+        return jsonify({"ok": True, "role": user.role, "must_change_password": user.must_change_password})
 
     db.session.add(LoginHistory(username=username, ip_address=ip, success=False))
     db.session.commit()

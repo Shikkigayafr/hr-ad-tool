@@ -14,7 +14,8 @@ bp = Blueprint("profile", __name__)
 @api_login_required
 def get_profile():
     return jsonify({"ok": True, "username": g.user.username, "first_name": g.user.first_name,
-                    "avatar": g.user.avatar, "role": g.user.role, "department": g.user.department})
+                    "avatar": g.user.avatar, "role": g.user.role, "department": g.user.department,
+                    "must_change_password": g.user.must_change_password})
 
 
 @bp.route("/api/profile", methods=["POST"])
@@ -46,6 +47,7 @@ def update_password():
     if new_pass == old_pass:
         return jsonify({"ok": False, "message": "Новый пароль совпадает со старым"}), 400
     g.user.set_password(new_pass)
+    g.user.must_change_password = False
     db.session.commit()
     audit("password_changed")
     return jsonify({"ok": True, "message": "Пароль успешно изменен!"})

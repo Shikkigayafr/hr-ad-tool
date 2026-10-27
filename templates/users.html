@@ -64,7 +64,7 @@
         document.getElementById('users-body').innerHTML = users.map(u => `
             <tr>
                 <td data-label="Логин"><strong>${esc(u.username)}</strong></td>
-                <td data-label="Имя">${esc(u.first_name || '—')}</td>
+                <td data-label="Имя">${esc(u.first_name || '—')}${u.must_change_password ? ' <span title="Пользователь ещё не сменил выданный пароль">🔑</span>' : ''}</td>
                 <td data-label="Роль">${esc(ROLE_NAMES[u.role] || u.role)}</td>
                 <td data-label="Отдел">${esc(u.department || '—')}</td>
                 <td data-label="Действия">

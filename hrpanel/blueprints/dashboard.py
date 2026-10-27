@@ -15,7 +15,7 @@ bp = Blueprint("dashboard", __name__)
 @api_login_required
 def api_stats():
     display_name = g.user.first_name or g.user.username.capitalize()
-    emps = scoped_employees().order_by(Employee.created_at.desc()).all()
+    emps = scoped_employees().filter(Employee.is_active.is_(True)).order_by(Employee.created_at.desc()).all()
     week_ago = datetime.utcnow() - timedelta(days=7)
 
     employees_list = [{

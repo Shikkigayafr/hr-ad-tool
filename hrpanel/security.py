@@ -13,6 +13,14 @@ LOCK_IP_ATTEMPTS = 30        # общий лимит с одного IP (люб�
 LOCK_WINDOW = timedelta(minutes=30)
 
 
+# Что доступно, пока не сменён временный пароль (профиль, смена пароля, выход)
+PASSWORD_CHANGE_ALLOWED = {
+    "static", "system.health_check", "auth.logout", "auth.api_me",
+    "pages.page_profile", "profile.get_profile", "profile.update_password",
+    "dashboard.get_login_history",
+}
+
+
 # --- Клиент и блокировка входа ---
 def client_ip():
     # За reverse-proxy включите TRUST_PROXY=true, иначе X-Forwarded-For можно подделать
@@ -114,6 +122,18 @@ def register_security(app):
         sent = request.headers.get("X-CSRF-Token", "")
         if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
             return jsonify({"ok": False, "message": "Сессия устарела, обновите страницу"}), 403
+
+    @app.before_request
+    def enforce_password_change():
+        """Пользователь с временным паролем (выдан админом) может только сменить пароль и выйти."""
+        if not g.user or not g.user.must_change_password:
+            return
+        if request.endpoint in PASSWORD_CHANGE_ALLOWED:
+            return
+        if request.path.startswith("/api/"):
+            return jsonify({"ok": False, "code": "password_change_required",
+                            "message": "Сначала смените временный пароль в личном кабинете"}), 403
+        return redirect(url_for("pages.page_profile", force=1))
 
     @app.context_processor
     def inject_csrf():

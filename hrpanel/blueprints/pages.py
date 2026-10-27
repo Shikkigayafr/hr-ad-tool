@@ -17,6 +17,12 @@ def page_create():
     return render_template("create.html", departments=DEPARTMENTS)
 
 
+@bp.route("/import")
+@page_login_required()
+def page_import():
+    return render_template("import.html")
+
+
 @bp.route("/employees")
 @page_login_required()
 def page_employees():

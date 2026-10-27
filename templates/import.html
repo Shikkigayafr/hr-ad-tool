@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Массовый импорт сотрудников</h1>
+    <p>Загрузите CSV (из Excel: «Сохранить как → CSV»). Сначала нажмите «Проверить» — ничего не создастся, вы увидите ошибки по строкам.</p>
+
+    <div class="settings-card" style="margin-top: 16px;">
+        <p style="margin-bottom: 12px;">
+            Колонки: <strong>ФИО</strong>, <strong>Логин</strong> — обязательные;
+            Email, Отдел, Роль (Стажер / Основной / Старший), Пароль — по желанию.
+            Пустой отдел = ваш отдел, пустая роль = Стажер, пустой пароль = будет сгенерирован.
+            Максимум 200 строк за раз.
+        </p>
+        <a href="/api/employees/import/template" class="btn-export" style="display: inline-block; margin-bottom: 16px;">📄 Скачать шаблон</a>
+
+        <input type="file" id="csv-file" accept=".csv,text/csv,text/plain" onchange="resetResult()">
+        <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary btn-small" id="btn-check" onclick="runImport(true, this)">Проверить</button>
+            <button type="button" class="btn-small" id="btn-import" onclick="runImport(false, this)" disabled>Создать сотрудников</button>
+        </div>
+    </div>
+
+    <div id="result" style="margin-top: 24px; display: none;">
+        <h2 id="result-title" style="margin-bottom: 8px;"></h2>
+        <div id="result-actions" style="margin-bottom: 12px;"></div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr><th>Строка</th><th>ФИО</th><th>Логин</th><th>Отдел / роль</th><th>Результат</th></tr>
+                </thead>
+                <tbody id="result-body"></tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ROLE_NAMES = { Sbis_Stager: 'Стажер', Sbis_Main: 'Основной', Sbis_Senior: 'Старший' };
+    let lastRows = [];
+
+    function resetResult() {
+        document.getElementById('result').style.display = 'none';
+        document.getElementById('btn-import').disabled = true;
+    }
+
+    async function runImport(dryRun, btn) {
+        const file = document.getElementById('csv-file').files[0];
+        if (!file) { toast('Выберите CSV-файл', false); return; }
+        if (!dryRun && !confirm('Создать сотрудников из файла в AD?')) return;
+
+        const form = new FormData();
+        form.append('file', file);
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/employees/import' + (dryRun ? '?dry_run=1' : ''), { method: 'POST', body: form });
+            const data = await res.json();
+            if (!data.ok) { toast(data.message, false); resetResult(); return; }
+            renderResult(data);
+        } catch (e) {
+            toast('Ошибка сети', false);
+        } finally {
+            btn.disabled = false;
+            // создавать можно только после успешной проверки без ошибок
+            document.getElementById('btn-import').disabled = !(dryRun && lastRows.length && lastRows.every(r => r.ok));
+        }
+    }
+
+    function renderResult(data) {
+        lastRows = data.rows;
+        document.getElementById('result').style.display = '';
+        document.getElementById('result-title').textContent = data.dry_run
+            ? `Проверка: готово к созданию ${data.created} из ${data.total}, ошибок ${data.failed}`
+            : `Создано ${data.created} из ${data.total}, ошибок ${data.failed}`;
+
+        document.getElementById('result-body').innerHTML = data.rows.map(r => `
+            <tr>
+                <td data-label="Строка">${r.line}</td>
+                <td data-label="ФИО">${esc(r.full_name)}</td>
+                <td data-label="Логин">${esc(r.login)}</td>
+                <td data-label="Отдел / роль">${esc(r.department)} · ${esc(ROLE_NAMES[r.role] || r.role)}</td>
+                <td data-label="Результат" style="color: ${r.ok ? 'var(--success)' : 'var(--danger)'};">
+                    ${r.ok ? '✅' : '❌'} ${esc(r.message)}
+                    ${r.password ? `<br><code>${esc(r.password)}</code>` : ''}
+                </td>
+            </tr>`).join('');
+
+        const actions = document.getElementById('result-actions');
+        actions.innerHTML = '';
+        const withPasswords = data.rows.filter(r => r.password);
+        if (!data.dry_run && withPasswords.length) {
+            actions.innerHTML = `
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px;">
+                    Сгенерированные пароли показаны один раз — сохраните их сейчас. После закрытия страницы их нигде не будет.
+                </p>
+                <button type="button" class="btn-small" onclick="downloadCredentials()">💾 Скачать логины и пароли (CSV)</button>`;
+        }
+    }
+
+    // CSV собирается в браузере, на сервер пароли повторно не отправляются
+    function downloadCredentials() {
+        const lines = ['ФИО;Логин;Пароль'].concat(lastRows.filter(r => r.password)
+            .map(r => [r.full_name, r.login, r.password].join(';')));
+        const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'new_employees_credentials.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+</script>
+{% endblock %}

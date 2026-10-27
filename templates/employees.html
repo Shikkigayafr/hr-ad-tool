@@ -15,6 +15,11 @@
                 <option value="">Все отделы</option>
             </select>
 
+            <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-size: 14px;">
+                <input type="checkbox" id="show-disabled" onchange="resetPageAndRender()" style="width: auto; margin: 0;">
+                Показывать отключённых
+            </label>
+
             <div class="search-box">
                 <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" id="search-input" placeholder="Поиск по ФИО или роли..." oninput="resetPageAndRender()">
@@ -151,6 +156,7 @@
         // Фильтруем массив (ищем и по ключу роли, и по русскому названию)
         const filtered = allEmployees.filter(emp => {
             if (dept && emp.department !== dept) return false;
+            if (!emp.is_active && !document.getElementById('show-disabled').checked) return false;
             if (!query) return true;
             return emp.full_name.toLowerCase().includes(query)
                 || emp.role.toLowerCase().includes(query)
@@ -180,8 +186,10 @@
         pageItems.forEach((emp, i) => {
             const tr = document.createElement('tr');
             tr.style.animationDelay = (i * 20) + 'ms'; // Быстрая анимация появления
+            if (!emp.is_active) tr.style.opacity = '0.6';
             const canPromote = emp.role === 'Sbis_Stager' && myRole !== 'hr';
-            const canReset = myRole !== 'hr' || emp.role === 'Sbis_Stager'; // HR сбрасывает пароль только стажёрам
+            const hrLimited = myRole === 'hr' && emp.role !== 'Sbis_Stager'; // HR работает только со стажёрами
+            const canReset = emp.is_active && !hrLimited;
             tr.innerHTML = `
                 <td data-label="ФИО">
                     <div class="cell-user">
@@ -190,12 +198,15 @@
                     </div>
                 </td>
                 <td data-label="Отдел">${esc(emp.department)}</td>
-                <td data-label="Роль">${roleBadge(emp.role)}</td>
+                <td data-label="Роль">${roleBadge(emp.role)}${emp.is_active ? '' :
+                    ` <span class="badge badge-stager" title="${esc(emp.disabled_reason || 'причина не указана')}" style="background: rgba(239,68,68,.14); color: #ef4444; border-color: rgba(239,68,68,.35);">Отключён</span>`}</td>
                 <td data-label="Создан">${esc(fmtDate(emp.created_at))}</td>
                 <td data-label="Действия">
-                    ${canPromote ? `<button class="btn-small" data-action="promote" data-id="${emp.id}">Повысить</button>` : ''}
+                    ${emp.is_active && canPromote ? `<button class="btn-small" data-action="promote" data-id="${emp.id}">Повысить</button>` : ''}
                     ${canReset ? `<button class="btn-small btn-secondary" data-action="reset" data-id="${emp.id}">Пароль</button>` : ''}
-                    <button class="btn-small btn-danger" data-action="delete" data-id="${emp.id}">Удалить</button>
+                    ${emp.is_active && !hrLimited ? `<button class="btn-small btn-danger" data-action="disable" data-id="${emp.id}">Отключить</button>` : ''}
+                    ${!emp.is_active && !hrLimited ? `<button class="btn-small" data-action="enable" data-id="${emp.id}">Вернуть</button>` : ''}
+                    ${!emp.is_active && myRole === 'admin' ? `<button class="btn-small btn-danger" data-action="delete" data-id="${emp.id}">Удалить навсегда</button>` : ''}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -216,6 +227,8 @@
         const id = Number(btn.dataset.id);
         if (btn.dataset.action === 'promote') promoteEmp(id);
         if (btn.dataset.action === 'delete') deleteEmp(id);
+        if (btn.dataset.action === 'disable') disableEmp(id);
+        if (btn.dataset.action === 'enable') enableEmp(id);
         if (btn.dataset.action === 'reset') resetPassword(id, btn);
     });
 
@@ -264,9 +277,31 @@
         if (data.ok) loadEmployees();
     }
 
+    async function disableEmp(id) {
+        const emp = allEmployees.find(e => e.id === id);
+        if (!emp) return;
+        const reason = prompt(`Отключить сотрудника ${emp.full_name}?\nПричина (необязательно, до 100 символов):`);
+        if (reason === null) return; // нажали «Отмена»
+        const res = await fetch(`/api/employee/${id}/disable`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ reason })
+        });
+        const data = await res.json();
+        toast(data.message, data.ok);
+        if (data.ok) loadEmployees();
+    }
+
+    async function enableEmp(id) {
+        const emp = allEmployees.find(e => e.id === id);
+        if (!emp || !confirm(`Вернуть сотрудника ${emp.full_name}?`)) return;
+        const res = await fetch(`/api/employee/${id}/enable`, {method: 'POST'});
+        const data = await res.json();
+        toast(data.message, data.ok);
+        if (data.ok) loadEmployees();
+    }
+
     async function deleteEmp(id) {
         const emp = allEmployees.find(e => e.id === id);
-        if (!emp || !confirm(`Удалить сотрудника ${emp.full_name}?`)) return;
+        if (!emp || !confirm(`УДАЛИТЬ НАВСЕГДА сотрудника ${emp.full_name}? Это нельзя отменить.`)) return;
         const res = await fetch(`/api/employee/${id}`, {method: 'DELETE'});
         const data = await res.json();
         toast(data.message, data.ok);

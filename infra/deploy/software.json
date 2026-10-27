@@ -1,0 +1,7 @@
+[
+  { "name": "7-Zip", "type": "winget", "id": "7zip.7zip" },
+  { "name": "Notepad++", "type": "winget", "id": "Notepad++.Notepad++" },
+  { "name": "Google Chrome", "type": "winget", "id": "Google.Chrome" },
+  { "name": "VLC", "type": "winget", "id": "VideoLAN.VLC" },
+  { "name": "Adobe Acrobat Reader", "type": "winget", "id": "Adobe.Acrobat.Reader.64-bit" }
+]

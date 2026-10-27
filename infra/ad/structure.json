@@ -1,0 +1,49 @@
+{
+  "_comment": "Описание структуры AD для панели. Список отделов и групп должен совпадать с saby_config.py и models/hrpanel (это проверяет тест tests/test_infra_files.py).",
+  "domain": {
+    "name": "corp.local",
+    "netbios": "CORP"
+  },
+  "serviceAccount": {
+    "name": "svc_hr",
+    "description": "Сервисная учётка HR-панели (создание и отключение пользователей)"
+  },
+  "ous": {
+    "departments": "Departments",
+    "groups": "Groups",
+    "newUsers": "NewUsers",
+    "disabled": "Disabled",
+    "workstations": "Workstations",
+    "serviceAccounts": "ServiceAccounts"
+  },
+  "departments": [
+    "Отдел горячих продаж",
+    "Стажеры ТП",
+    "Колл Центр",
+    "Координатор",
+    "СММ",
+    "Контроль качества",
+    "Продление",
+    "Офис",
+    "Отдел исходящих звонков",
+    "Отдел входящих звонков",
+    "Отдел развития",
+    "Техническая поддержка",
+    "Облако",
+    "Удаленные"
+  ],
+  "groups": [
+    "Sbis_Stager",
+    "Sbis_Main",
+    "Sbis_Senior"
+  ],
+  "passwordPolicy": {
+    "_comment": "Применяется только с ключом -ApplyPasswordPolicy. Значения — отправная точка, согласуйте с руководством.",
+    "minLength": 8,
+    "complexity": true,
+    "historyCount": 5,
+    "maxAgeDays": 0,
+    "lockoutThreshold": 10,
+    "lockoutDurationMinutes": 15
+  }
+}

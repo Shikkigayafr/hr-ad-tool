@@ -8,3 +8,8 @@ __pycache__/
 README.md
 check_*.py
 test_*.py
+tests/
+CLAUDE.md
+PROGRESS.md
+TROUBLESHOOTING.md
+requirements-dev.txt

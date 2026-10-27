@@ -14,5 +14,5 @@ COPY . .
 # Открываем порт
 EXPOSE 5000
 
-# Запускаем через Gunicorn с поддержкой Eventlet для WebSockets
+# Запускаем через Gunicorn (gevent-воркер) для WebSockets
 CMD ["gunicorn", "--worker-class", "gevent", "-w", "1", "-b", "0.0.0.0:5000", "app:app"]

@@ -1,11 +1,13 @@
-version: '3.8'
-
 services:
   hr-ad-panel:
     build: .
     container_name: hr_ad_panel
     ports:
       - "5000:5000"
+    # .env с паролями AD/Saby подхватывается при запуске (в образ не копируется)
+    env_file:
+      - path: .env
+        required: false
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0

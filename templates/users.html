@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Пользователи панели</h1>
+    <p>Те, кто входит в эту панель: администраторы, HR и руководители отделов.</p>
+
+    <div class="table-wrapper" style="margin-top: 20px;">
+        <table>
+            <thead>
+                <tr><th>Логин</th><th>Имя</th><th>Роль</th><th>Отдел</th><th>Действия</th></tr>
+            </thead>
+            <tbody id="users-body">
+                <tr class="skeleton-row"><td colspan="5"><span class="skeleton" style="width:50%"></span></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2 style="margin-top: 40px;">Добавить пользователя</h2>
+    <div class="settings-card">
+        <label for="new-username">Логин</label>
+        <div class="input-group"><input id="new-username" autocomplete="off" placeholder="hr.ivanova"></div>
+
+        <label for="new-first-name">Имя (как обращаться)</label>
+        <div class="input-group"><input id="new-first-name" autocomplete="off" placeholder="Анна"></div>
+
+        <label for="new-password">Пароль</label>
+        <div class="input-group"><input id="new-password" type="password" autocomplete="new-password"></div>
+
+        <label for="new-role">Роль</label>
+        <select id="new-role" onchange="syncDepartmentField()">
+            <option value="hr">HR (создаёт сотрудников своего отдела)</option>
+            <option value="manager">Руководитель отдела (видит свой отдел)</option>
+            <option value="admin">Администратор (всё)</option>
+        </select>
+
+        <div id="dept-wrap">
+            <label for="new-department">Отдел</label>
+            <select id="new-department">
+                {% for dept in departments %}
+                <option>{{ dept }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button onclick="createUser(this)" class="btn-block btn-small" style="margin-top: 15px;">Создать</button>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ROLE_NAMES = { admin: 'Администратор', hr: 'HR', manager: 'Руководитель' };
+    let users = [];
+
+    function syncDepartmentField() {
+        document.getElementById('dept-wrap').style.display =
+            document.getElementById('new-role').value === 'admin' ? 'none' : '';
+    }
+
+    async function loadUsers() {
+        const res = await fetch('/api/users');
+        const data = await res.json();
+        if (!data.ok) { window.location.href = '/'; return; }
+        users = data.users;
+        document.getElementById('users-body').innerHTML = users.map(u => `
+            <tr>
+                <td data-label="Логин"><strong>${esc(u.username)}</strong></td>
+                <td data-label="Имя">${esc(u.first_name || '—')}</td>
+                <td data-label="Роль">${esc(ROLE_NAMES[u.role] || u.role)}</td>
+                <td data-label="Отдел">${esc(u.department || '—')}</td>
+                <td data-label="Действия">
+                    <button class="btn-small" data-action="password" data-id="${u.id}">Сбросить пароль</button>
+                    <button class="btn-small btn-danger" data-action="delete" data-id="${u.id}">Удалить</button>
+                </td>
+            </tr>`).join('');
+    }
+
+    document.getElementById('users-body').addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const user = users.find(u => u.id === Number(btn.dataset.id));
+        if (!user) return;
+
+        if (btn.dataset.action === 'delete') {
+            if (!confirm(`Удалить пользователя ${user.username}?`)) return;
+            const res = await fetch(`/api/users/${user.id}`, {method: 'DELETE'});
+            const data = await res.json();
+            toast(data.message, data.ok);
+            if (data.ok) loadUsers();
+        } else {
+            const pwd = prompt(`Новый пароль для ${user.username} (8+ символов, заглавная, цифра, спецсимвол):`);
+            if (!pwd) return;
+            const res = await fetch(`/api/users/${user.id}/password`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ new_password: pwd })
+            });
+            const data = await res.json();
+            toast(data.message, data.ok);
+        }
+    });
+
+    async function createUser(btn) {
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/users', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('new-username').value.trim(),
+                    first_name: document.getElementById('new-first-name').value.trim(),
+                    password: document.getElementById('new-password').value,
+                    role: document.getElementById('new-role').value,
+                    department: document.getElementById('new-department').value
+                })
+            });
+            const data = await res.json();
+            toast(data.message, data.ok);
+            if (data.ok) {
+                ['new-username', 'new-first-name', 'new-password'].forEach(id => document.getElementById(id).value = '');
+                loadUsers();
+            }
+        } catch (e) {
+            toast('Ошибка сети', false);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    syncDepartmentField();
+    loadUsers();
+</script>
+{% endblock %}

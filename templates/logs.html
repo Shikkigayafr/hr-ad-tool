@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
+        <div>
+            <h1 style="margin-bottom: 8px;">Журнал действий</h1>
+            <p style="margin: 0;">Полная история: кто, что и когда сделал.</p>
+        </div>
+        <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="log-search" placeholder="Поиск по действию или автору..." oninput="onSearch()">
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th>Время</th><th>Кто</th><th>Отдел</th><th>Действие</th></tr>
+            </thead>
+            <tbody id="logs-body">
+                <tr class="skeleton-row"><td colspan="4"><span class="skeleton" style="width:60%"></span></td></tr>
+                <tr class="skeleton-row"><td colspan="4"><span class="skeleton" style="width:40%"></span></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="pager" style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let page = 1;
+    let searchTimer = null;
+
+    function onSearch() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { page = 1; loadLogs(); }, 300);
+    }
+
+    function goToPage(p) {
+        page = p;
+        loadLogs();
+    }
+
+    async function loadLogs() {
+        const tbody = document.getElementById('logs-body');
+        const q = document.getElementById('log-search').value.trim();
+        try {
+            const res = await fetch(`/api/logs/all?page=${page}&q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            if (!data.ok) { window.location.href = '/'; return; }
+
+            if (data.logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="table-empty">Записей не найдено</td></tr>';
+            } else {
+                tbody.innerHTML = data.logs.map(l => `
+                    <tr>
+                        <td data-label="Время">${esc(fmtDate(l.time))}</td>
+                        <td data-label="Кто"><strong>${esc(l.user)}</strong></td>
+                        <td data-label="Отдел">${esc(l.department || '—')}</td>
+                        <td data-label="Действие">${esc(l.action)}</td>
+                    </tr>`).join('');
+            }
+
+            document.getElementById('pager').innerHTML = data.pages <= 1 ? '' : `
+                <button class="btn-small btn-secondary" ${data.page === 1 ? 'disabled' : ''} onclick="goToPage(${data.page - 1})">←</button>
+                <span style="color: var(--text-muted); font-size: 14px;">Страница ${data.page} из ${data.pages} · всего ${data.total}</span>
+                <button class="btn-small btn-secondary" ${data.page === data.pages ? 'disabled' : ''} onclick="goToPage(${data.page + 1})">→</button>
+            `;
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="4" class="table-empty">Не удалось загрузить журнал</td></tr>';
+        }
+    }
+
+    loadLogs();
+</script>
+{% endblock %}

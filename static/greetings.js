@@ -1,6 +1,8 @@
 // static/greetings.js
 
-function getGreeting(name) {
+function getGreeting(rawName) {
+    // Результат вставляется через innerHTML, поэтому имя экранируем
+    const name = String(rawName ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
     const now = new Date();
     const hour = now.getHours();
     const day = now.getDate();

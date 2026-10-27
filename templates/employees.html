@@ -6,14 +6,18 @@
             <h1 style="margin-bottom: 8px;">Список сотрудников</h1>
             <p style="margin: 0;">Управление учётными записями стажёров и сотрудников.</p>
         </div>
-        
-        <!-- Блок поиска и экспорта -->
+
+        <!-- Блок фильтров, поиска и экспорта -->
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
             <a href="/api/employees/export" class="btn-export">📥 Скачать Excel/CSV</a>
-            
+
+            <select id="dept-filter" onchange="resetPageAndRender()" style="width: auto; margin: 0;">
+                <option value="">Все отделы</option>
+            </select>
+
             <div class="search-box">
                 <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="search-input" placeholder="Поиск по ФИО или роли..." oninput="filterTable()">
+                <input type="text" id="search-input" placeholder="Поиск по ФИО или роли..." oninput="resetPageAndRender()">
             </div>
         </div>
     </div>
@@ -23,28 +27,36 @@
             <thead>
                 <tr>
                     <th>ФИО</th>
+                    <th>Отдел</th>
                     <th>Роль</th>
+                    <th>Создан</th>
                     <th>Действия</th>
                 </tr>
             </thead>
             <tbody id="emp-body">
                 <!-- Скелетон -->
-                <tr class="skeleton-row"><td colspan="3"><span class="skeleton" style="width:60%"></span></td></tr>
-                <tr class="skeleton-row"><td colspan="3"><span class="skeleton" style="width:40%"></span></td></tr>
-                <tr class="skeleton-row"><td colspan="3"><span class="skeleton" style="width:75%"></span></td></tr>
+                <tr class="skeleton-row"><td colspan="5"><span class="skeleton" style="width:60%"></span></td></tr>
+                <tr class="skeleton-row"><td colspan="5"><span class="skeleton" style="width:40%"></span></td></tr>
+                <tr class="skeleton-row"><td colspan="5"><span class="skeleton" style="width:75%"></span></td></tr>
             </tbody>
         </table>
     </div>
+
+    <div id="pager" style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px;"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    const PAGE_SIZE = 20;
+    const ROLE_LABELS = { 'Sbis_Stager': 'стажер', 'Sbis_Main': 'основной', 'Sbis_Senior': 'старший' };
     let allEmployees = []; // Глобальный массив для хранения всех сотрудников
+    let currentPage = 1;
+    let myRole = null;
 
     function initials(name) {
         return (name || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
     }
-    
+
     function roleBadge(role) {
         const map = {
             'Sbis_Stager': ['badge-stager', 'Стажер'],
@@ -53,57 +65,60 @@
             'admin':       ['badge-admin',  'Админ'],
         };
         const [cls, label] = map[role] || ['badge-main', role];
-        return `<span class="badge ${cls}">${label}</span>`;
+        return `<span class="badge ${cls}">${esc(label)}</span>`;
     }
 
     // Загрузка данных
     async function loadEmployees() {
         const tbody = document.getElementById('emp-body');
         try {
-            const res = await fetch('/api/employees');
-            const data = await res.json();
-            if (!data.ok) { window.location.href = '/'; return; }
+            const [me, res] = await Promise.all([
+                fetch('/api/me').then(r => r.json()),
+                fetch('/api/employees').then(r => r.json()),
+            ]);
+            if (!res.ok) { window.location.href = '/'; return; }
 
-            allEmployees = data.employees; // Сохраняем в массив
-            filterTable(); // Вызываем рендер через функцию фильтрации
-            
+            myRole = me.role;
+            allEmployees = res.employees; // Сохраняем в массив
+            fillDepartmentFilter();
+            render();
         } catch (e) {
-            tbody.innerHTML = '<tr><td colspan="3" class="table-empty">Не удалось загрузить список</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Не удалось загрузить список</td></tr>';
         }
     }
 
+    function fillDepartmentFilter() {
+        const select = document.getElementById('dept-filter');
+        const selected = select.value;
+        const departments = [...new Set(allEmployees.map(e => e.department))].sort();
+        select.innerHTML = '<option value="">Все отделы</option>' +
+            departments.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+        select.value = departments.includes(selected) ? selected : '';
+        // HR и руководителю виден только свой отдел — фильтр не нужен
+        select.style.display = departments.length > 1 ? '' : 'none';
+    }
+
+    function resetPageAndRender() {
+        currentPage = 1;
+        render();
+    }
+
+    function goToPage(page) {
+        currentPage = page;
+        render();
+    }
+
     // Фильтрация и отрисовка
-    function filterTable() {
+    function render() {
         const query = document.getElementById('search-input').value.toLowerCase().trim();
+        const dept = document.getElementById('dept-filter').value;
         const tbody = document.getElementById('emp-body');
-        
-        // Фильтруем массив
-        const filtered = allEmployees.filter(emp => {
-            const matchName = emp.full_name.toLowerCase().includes(query);
-            const matchRole = emp.role.toLowerCase().includes(query);
-            return matchName || matchRole;
-        });
-
-        tbody.innerHTML = '';
-
-        // Если ничего не нашли
-        if (filtered.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="3" style="padding: 40px; text-align: center; color: var(--text-soft);">
-                        <div style="font-size: 24px; margin-bottom: 10px;">🔍</div>
-                        По запросу «${query}» ничего не найдено
-                    </td>
-                </tr>
-            `;
-            return;
-        }
 
         // Если вообще нет сотрудников в базе
         if (allEmployees.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="3" style="padding: 0;">
+                    <td colspan="5" style="padding: 0;">
                         <div class="empty-state">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                             <h3>Здесь пока пусто</h3>
@@ -112,29 +127,77 @@
                     </td>
                 </tr>
             `;
+            document.getElementById('pager').innerHTML = '';
             return;
         }
 
-        // Отрисовываем отфильтрованные строки
-        filtered.forEach((emp, i) => {
+        // Фильтруем массив (ищем и по ключу роли, и по русскому названию)
+        const filtered = allEmployees.filter(emp => {
+            if (dept && emp.department !== dept) return false;
+            if (!query) return true;
+            return emp.full_name.toLowerCase().includes(query)
+                || emp.role.toLowerCase().includes(query)
+                || (ROLE_LABELS[emp.role] || '').includes(query)
+                || emp.department.toLowerCase().includes(query);
+        });
+
+        // Если ничего не нашли
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="padding: 40px; text-align: center; color: var(--text-soft);">
+                        <div style="font-size: 24px; margin-bottom: 10px;">🔍</div>
+                        Ничего не найдено
+                    </td>
+                </tr>
+            `;
+            document.getElementById('pager').innerHTML = '';
+            return;
+        }
+
+        const pages = Math.ceil(filtered.length / PAGE_SIZE);
+        currentPage = Math.min(currentPage, pages);
+        const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+        tbody.innerHTML = '';
+        pageItems.forEach((emp, i) => {
             const tr = document.createElement('tr');
             tr.style.animationDelay = (i * 20) + 'ms'; // Быстрая анимация появления
+            const canPromote = emp.role === 'Sbis_Stager' && myRole !== 'hr';
             tr.innerHTML = `
                 <td data-label="ФИО">
                     <div class="cell-user">
-                        <span class="avatar">${initials(emp.full_name)}</span>
-                        <span>${emp.full_name}</span>
+                        <span class="avatar">${esc(initials(emp.full_name))}</span>
+                        <span>${esc(emp.full_name)}</span>
                     </div>
                 </td>
+                <td data-label="Отдел">${esc(emp.department)}</td>
                 <td data-label="Роль">${roleBadge(emp.role)}</td>
+                <td data-label="Создан">${esc(fmtDate(emp.created_at))}</td>
                 <td data-label="Действия">
-                    <button class="btn-small" onclick="promoteEmp(${emp.id})">Повысить</button>
-                    <button class="btn-small btn-danger" onclick="deleteEmp(${emp.id}, '${emp.full_name.replace(/'/g, "\\'")}')">Удалить</button>
+                    ${canPromote ? `<button class="btn-small" data-action="promote" data-id="${emp.id}">Повысить</button>` : ''}
+                    <button class="btn-small btn-danger" data-action="delete" data-id="${emp.id}">Удалить</button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
+
+        const pager = document.getElementById('pager');
+        pager.innerHTML = pages <= 1 ? '' : `
+            <button class="btn-small btn-secondary" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">←</button>
+            <span style="color: var(--text-muted); font-size: 14px;">Страница ${currentPage} из ${pages} · всего ${filtered.length}</span>
+            <button class="btn-small btn-secondary" ${currentPage === pages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">→</button>
+        `;
     }
+
+    // Делегирование: имя сотрудника в атрибут/обработчик не подставляем
+    document.getElementById('emp-body').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        if (btn.dataset.action === 'promote') promoteEmp(id);
+        if (btn.dataset.action === 'delete') deleteEmp(id);
+    });
 
     async function promoteEmp(id) {
         const res = await fetch(`/api/employee/${id}/promote`, {method: 'POST'});
@@ -143,8 +206,9 @@
         if (data.ok) loadEmployees();
     }
 
-    async function deleteEmp(id, name) {
-        if (!confirm(`Удалить сотрудника ${name}?`)) return;
+    async function deleteEmp(id) {
+        const emp = allEmployees.find(e => e.id === id);
+        if (!emp || !confirm(`Удалить сотрудника ${emp.full_name}?`)) return;
         const res = await fetch(`/api/employee/${id}`, {method: 'DELETE'});
         const data = await res.json();
         toast(data.message, data.ok);

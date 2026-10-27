@@ -50,20 +50,9 @@
 
     <label for="department">Отдел (как в СБИС)</label>
     <select id="department">
-        <option>Отдел горячих продаж</option>
-        <option>Стажеры ТП</option>
-        <option>Колл Центр</option>
-        <option>Координатор</option>
-        <option>СММ</option>
-        <option>Контроль качества</option>
-        <option>Продление</option>
-        <option>Офис</option>
-        <option>Отдел исходящих звонков</option>
-        <option>Отдел входящих звонков</option>
-        <option>Отдел развития</option>
-        <option>Техническая поддержка</option>
-        <option>Облако</option>
-        <option>Удаленные</option>
+        {% for dept in departments %}
+        <option>{{ dept }}</option>
+        {% endfor %}
     </select>
 
     <label for="role">Роль (Квалификация)</label>
@@ -82,6 +71,11 @@
     fetch('/api/me').then(r => r.json()).then(data => {
         if (data.ok && data.role === 'admin') {
             document.getElementById('opt-senior').style.display = 'block';
+        } else if (data.ok && data.department) {
+            // HR и руководитель создают только в своём отделе
+            const select = document.getElementById('department');
+            select.value = data.department;
+            select.disabled = true;
         } else if (!data.ok) {
             window.location.href = '/';
         }

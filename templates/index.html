@@ -6,7 +6,7 @@
             <h1>Панель управления сотрудников <span class="wave">👋</span></h1>
             <p>Управление учётными записями в AD (Эвостор).</p>
         </div>
-        
+
         {% if session.get('user_id') %}
         <div class="header-right">
             <div class="profile-widget">
@@ -31,18 +31,18 @@
                 <div class="stat-body" id="acc-total"><div class="loading-text">Загрузка...</div></div>
             </div>
             <div class="stat-accordion-item">
-                <div class="stat-header" onclick="toggleAccordion('acc-online')">
-                    <div class="stat-title"><span class="stat-icon">🟢</span><span>Онлайн сейчас</span></div>
-                    <div class="stat-value text-success" id="stat-online"><span class="skeleton-text"></span></div>
+                <div class="stat-header" onclick="toggleAccordion('acc-stagers')">
+                    <div class="stat-title"><span class="stat-icon">🎓</span><span>Стажёры</span></div>
+                    <div class="stat-value text-success" id="stat-stagers"><span class="skeleton-text"></span></div>
                 </div>
-                <div class="stat-body" id="acc-online"><div class="loading-text">Загрузка...</div></div>
+                <div class="stat-body" id="acc-stagers"><div class="loading-text">Загрузка...</div></div>
             </div>
             <div class="stat-accordion-item">
-                <div class="stat-header" onclick="toggleAccordion('acc-offline')">
-                    <div class="stat-title"><span class="stat-icon">⏳</span><span>Офлайн / Отпуск</span></div>
-                    <div class="stat-value" id="stat-offline"><span class="skeleton-text"></span></div>
+                <div class="stat-header" onclick="toggleAccordion('acc-staff')">
+                    <div class="stat-title"><span class="stat-icon">💼</span><span>Основной состав</span></div>
+                    <div class="stat-value" id="stat-staff"><span class="skeleton-text"></span></div>
                 </div>
-                <div class="stat-body" id="acc-offline"><div class="loading-text">Загрузка...</div></div>
+                <div class="stat-body" id="acc-staff"><div class="loading-text">Загрузка...</div></div>
             </div>
         </div>
 
@@ -57,11 +57,21 @@
                 <div class="action-icon">📋</div>
                 <div class="action-text"><h3>Список сотрудников</h3><p>Просмотр и удаление записей</p></div>
             </a>
+            <a href="/logs" class="action-card">
+                <div class="action-icon">🕘</div>
+                <div class="action-text"><h3>Журнал действий</h3><p>Полная история с поиском</p></div>
+            </a>
+            {% if session.get('role') == 'admin' %}
+            <a href="/users" class="action-card">
+                <div class="action-icon">🔑</div>
+                <div class="action-text"><h3>Пользователи панели</h3><p>HR, руководители, пароли</p></div>
+            </a>
+            {% endif %}
         </div>
 
         <!-- ГРАФИК -->
         <div class="chart-container" style="margin-top: 24px;">
-            <h2 style="margin-bottom: 16px;">Активность за 7 дней</h2>
+            <h2 style="margin-bottom: 16px;">Создано сотрудников за 7 дней</h2>
             <div class="chart-wrapper" style="height: 200px;"><canvas id="activityChart"></canvas></div>
         </div>
     {% endif %}
@@ -75,6 +85,7 @@
         <div class="log-list" id="log-list">
             <div class="loading-text">Загрузка...</div>
         </div>
+        <a href="/logs" style="display: block; margin-top: 12px; font-size: 13px; color: var(--accent);">Весь журнал →</a>
     </div>
     {% endif %}
 {% endblock %}
@@ -96,18 +107,18 @@
                         statsData = data;
                         const name = data.user_name || 'Пользователь';
                         document.getElementById('greeting-text').innerHTML = getGreeting(name);
-                        
+
                         const avatarDiv = document.getElementById('profile-avatar');
                         if (data.user_avatar) {
                             avatarDiv.textContent = '';
-                            avatarDiv.style.backgroundImage = `url('/static/avatars/${data.user_avatar}')`;
+                            avatarDiv.style.backgroundImage = `url('/static/avatars/${encodeURIComponent(data.user_avatar)}')`;
                         } else {
                             avatarDiv.textContent = name.substring(0, 2).toUpperCase();
                         }
 
                         document.getElementById('stat-total').textContent = data.total;
-                        document.getElementById('stat-online').textContent = data.online;
-                        document.getElementById('stat-offline').textContent = data.total - data.online;
+                        document.getElementById('stat-stagers').textContent = data.stagers;
+                        document.getElementById('stat-staff').textContent = data.staff;
                         renderAccordions();
                     }
                 });
@@ -141,15 +152,7 @@
                             container.innerHTML = '<div class="list-empty">Пока нет действий</div>';
                             return;
                         }
-                        container.innerHTML = data.logs.map(log => `
-                            <div class="log-item">
-                                <div class="log-content">
-                                    <div class="log-icon">📝</div>
-                                    <div class="log-text"><strong>${log.user}</strong> ${log.action}</div>
-                                </div>
-                                <div class="log-time">${log.time}</div>
-                            </div>
-                        `).join('');
+                        container.innerHTML = renderLogItems(data.logs);
                     } else {
                         container.innerHTML = '<div class="list-empty">Ошибка доступа</div>';
                     }
@@ -164,15 +167,20 @@
         body.classList.toggle('open');
     }
 
+    function accordionList(emps, emptyText) {
+        if (emps.length === 0) return `<div class="list-empty">${emptyText}</div>`;
+        return emps.map(e => `
+            <div class="list-item">
+                <div class="list-item-name">${esc(e.full_name)}</div>
+                <div class="list-item-meta">${esc(e.department)} • <span style="color: var(--text-soft)">${esc(fmtDate(e.created_at))}</span></div>
+            </div>`).join('');
+    }
+
     function renderAccordions() {
         const emps = statsData.employees;
-        document.getElementById('acc-total').innerHTML = emps.map(e => `<div class="list-item"><div class="list-item-name">${e.full_name}</div><div class="list-item-meta">${e.department}</div></div>`).join('') || '<div class="list-empty">Список пуст</div>';
-        
-        const onlineEmps = emps.filter(e => e.is_online);
-        document.getElementById('acc-online').innerHTML = onlineEmps.map(e => `<div class="list-item"><div class="list-item-name">${e.full_name} <span class="dot dot-green"></span></div><div class="list-item-meta">${e.department}</div></div>`).join('') || '<div class="list-empty">Нет сотрудников онлайн</div>';
-
-        const offlineEmps = emps.filter(e => !e.is_online);
-        document.getElementById('acc-offline').innerHTML = offlineEmps.map(e => `<div class="list-item"><div class="list-item-name">${e.full_name}</div><div class="list-item-meta">${e.department} • <span style="color: var(--text-soft)">${e.last_seen}</span></div></div>`).join('') || '<div class="list-empty">Все сотрудники онлайн</div>';
+        document.getElementById('acc-total').innerHTML = accordionList(emps, 'Список пуст');
+        document.getElementById('acc-stagers').innerHTML = accordionList(emps.filter(e => e.role === 'Sbis_Stager'), 'Стажёров нет');
+        document.getElementById('acc-staff').innerHTML = accordionList(emps.filter(e => e.role !== 'Sbis_Stager'), 'Основной состав пуст');
     }
 </script>
 {% endblock %}

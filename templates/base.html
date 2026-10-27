@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>HR → AD Панель</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,6 +16,20 @@
     <!-- Socket.IO для уведомлений в реальном времени -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
+    <script>
+        // CSRF: все изменяющие запросы (POST/DELETE...) автоматически получают токен из <meta>
+        (function () {
+            const originalFetch = window.fetch;
+            window.fetch = function (url, opts = {}) {
+                const method = (opts.method || 'GET').toUpperCase();
+                if (method !== 'GET' && method !== 'HEAD') {
+                    const token = document.querySelector('meta[name="csrf-token"]').content;
+                    opts = {...opts, headers: {...(opts.headers || {}), 'X-CSRF-Token': token}};
+                }
+                return originalFetch.call(this, url, opts);
+            };
+        })();
+    </script>
     <script>
         (function () {
             const saved = localStorage.getItem('theme');
@@ -130,13 +145,39 @@
                 ? `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
                 : `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
 
-            el.innerHTML = `${iconSvg} <span>${text}</span>`;
+            el.innerHTML = `${iconSvg} <span></span>`;
+            el.querySelector('span').textContent = text; // textContent: данные из сети не попадают в HTML
             stack.appendChild(el);
 
             setTimeout(() => {
                 el.classList.add('out');
                 el.addEventListener('animationend', () => el.remove(), { once: true });
             }, ttl);
+        }
+
+        /* ---------- Хелперы ---------- */
+        // Экранирование: ВСЕ данные из API перед вставкой через innerHTML пропускаем через esc()
+        function esc(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+        }
+
+        // ISO-время из API (UTC) -> местное «дд.мм.гггг чч:мм»
+        function fmtDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return d.toLocaleString('ru-RU', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+        }
+
+        function renderLogItems(logs) {
+            return logs.map(log => `
+                <div class="log-item">
+                    <div class="log-content">
+                        <div class="log-icon">📝</div>
+                        <div class="log-text"><strong>${esc(log.user)}</strong> ${esc(log.action)}</div>
+                    </div>
+                    <div class="log-time">${esc(log.time)}</div>
+                </div>
+            `).join('');
         }
 
         /* ---------- Ripple ---------- */
@@ -159,7 +200,8 @@
 
         async function checkLockoutStatus() {
             try {
-                const res = await fetch('/api/check_lockout');
+                const typed = document.getElementById('hr-login').value.trim();
+                const res = await fetch('/api/check_lockout' + (typed ? '?login=' + encodeURIComponent(typed) : ''));
                 const data = await res.json();
                 const btn = document.getElementById('btn-login');
                 const msgDiv = document.getElementById('msg');
@@ -218,7 +260,7 @@
                     msgDiv.className = 'err';
                     
                     if (res.status === 429) {
-                        startLockoutTimer(30 * 60, btn);
+                        startLockoutTimer(data.seconds || 30 * 60, btn);
                     } else {
                         btn.disabled = false;
                     }
@@ -301,16 +343,7 @@
                         .then(res => res.json())
                         .then(logData => {
                             if (logData.ok && logData.logs.length > 0) {
-                                const container = document.getElementById('log-list');
-                                container.innerHTML = logData.logs.map(log => `
-                                    <div class="log-item">
-                                        <div class="log-content">
-                                            <div class="log-icon">📝</div>
-                                            <div class="log-text"><strong>${log.user}</strong> ${log.action}</div>
-                                        </div>
-                                        <div class="log-time">${log.time}</div>
-                                    </div>
-                                `).join('');
+                                document.getElementById('log-list').innerHTML = renderLogItems(logData.logs);
                             }
                         });
                 }

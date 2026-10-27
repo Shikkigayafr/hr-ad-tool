@@ -22,7 +22,7 @@
                 </form>
                 
                 <h2 id="display-username" style="margin-top: 20px;">admin</h2>
-                <span class="badge badge-admin">Пользователь</span>
+                <span class="badge badge-admin" id="role-badge">Пользователь</span>
             </div>
         </div>
 
@@ -90,7 +90,9 @@
                 if (data.ok) {
                     document.getElementById('first_name').value = data.first_name || '';
                     document.getElementById('display-username').textContent = data.username;
-                    
+                    document.getElementById('role-badge').textContent =
+                        {admin: 'Администратор', hr: 'HR', manager: 'Руководитель'}[data.role] || 'Пользователь';
+
                     const displayName = data.first_name || data.username;
                     const avatarDiv = document.getElementById('big-avatar');
                     
@@ -115,14 +117,14 @@
                     }
                     tbody.innerHTML = data.history.map(h => `
                         <tr style="border-bottom: 1px solid var(--border);">
-                            <td style="padding: 10px; font-weight: 500;">${h.username}</td>
-                            <td style="padding: 10px; color: var(--text-muted); font-family: monospace;">${h.ip}</td>
+                            <td style="padding: 10px; font-weight: 500;">${esc(h.username)}</td>
+                            <td style="padding: 10px; color: var(--text-muted); font-family: monospace;">${esc(h.ip)}</td>
                             <td style="padding: 10px;">
                                 ${h.success 
                                     ? '<span class="badge badge-senior">Успех</span>' 
                                     : '<span class="badge badge-stager" style="background: rgba(239,68,68,.14); color: #ef4444; border-color: rgba(239,68,68,.35);">Отказ</span>'}
                             </td>
-                            <td style="padding: 10px; color: var(--text-muted); font-size: 13px;">${h.time}</td>
+                            <td style="padding: 10px; color: var(--text-muted); font-size: 13px;">${esc(fmtDate(h.time))}</td>
                         </tr>
                     `).join('');
                 }

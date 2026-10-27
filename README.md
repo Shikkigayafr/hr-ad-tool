@@ -40,19 +40,40 @@
 
 ## ⚙️ Запуск
 
-### Вариант 1: Через Docker (рекомендуется)
+### Вариант 1: Docker (PostgreSQL + секреты)
 1. Установить Docker Desktop.
-2. Перейти в папку проекта, создать `.env` из `.env.example` (обязательно задать `SECRET_KEY`).
-3. Запустить: `docker compose up --build -d` (флаг `-d` — в фоне).
-4. Инициализировать БД (один раз): `docker exec -it hr_ad_panel flask --app app init-db` — пароль админа выведется в консоль (или задайте `INITIAL_ADMIN_PASSWORD` в `.env`).
+2. Создать `.env` из `.env.example` (несекретные настройки: `DRY_RUN`, адрес AD и т.д.).
+3. Сгенерировать секреты: `python scripts/init_secrets.py` — создаст папку `secrets/` (в git не попадает).
+   Пароли сервисных учёток впишите в `secrets/ad_password.txt` и `secrets/saby_password.txt`.
+4. Запустить: `docker compose up --build -d`. При старте контейнер сам применяет миграции БД.
+5. Создать админа (один раз): `docker exec -it hr_ad_panel flask --app app init-db` — пароль выведется в консоль
+   (или задайте `INITIAL_ADMIN_PASSWORD` в `.env`). Флаг `--demo` добавит тестового HR.
 
-### Вариант 2: Локально (для разработки)
-1. `python -m venv .venv`
-2. `.venv\Scripts\activate`
-3. `pip install -r requirements-dev.txt`
-4. Создать `.env` (см. пример в `.env.example`)
-5. `flask --app app init-db`
-6. `python app.py`
+**Переезд со старой SQLite-базы:** положите её в `instance/hr.db` и выполните
+`docker compose exec hr-ad-panel python scripts/sqlite_to_postgres.py instance/hr.db`.
+
+### Вариант 2: Локально (для разработки, SQLite)
+1. `python -m venv .venv`, `.venv\Scripts\activate`
+2. `pip install -r requirements-dev.txt`
+3. Создать `.env` (см. `.env.example`)
+4. `flask --app app init-db`
+5. `python app.py`
+
+## 🗄️ База данных и миграции
+Схема меняется только через миграции (Flask-Migrate / Alembic, папка `migrations/`):
+* изменили `models.py` → `flask --app app db migrate -m "что изменилось"` → проверить файл → `flask --app app db upgrade`;
+* `flask --app app upgrade-db` — безопасно применяет миграции (и «усыновляет» старую базу, созданную до миграций);
+* в Docker это выполняется автоматически при каждом старте.
+
+## 🔐 Секреты
+Приложение ищет секрет `NAME` так: файл из `NAME_FILE` → `/run/secrets/name` (Docker secrets) → переменная `NAME` из `.env`.
+Через secrets передаются `SECRET_KEY`, `POSTGRES_PASSWORD`, `AD_PASSWORD`, `SABY_PASSWORD`.
+
+## 📜 Логи
+Каждая строка — JSON (`ts`, `level`, `logger`, `msg`, …): в `docker logs` и в `logs/app.log` (ротация 10 МБ × 5).
+* `hrpanel.request` — запросы (метод, путь, статус, время, пользователь, `request_id`);
+* `hrpanel.audit` — события: входы, блокировки, создание/удаление/повышение, сброс паролей. Пароли в логи не попадают.
+Пример: `docker logs hr_ad_panel | grep '"event": "login_failed"'`.
 
 ## 🧪 Тесты
 `python -m pytest` — запускает набор из `tests/` (AD имитируется, БД в памяти). Файлы `test_*.py` в корне — отладочные скрипты для Saby, они не входят в тесты.
@@ -67,8 +88,11 @@
 * **hr** — создаёт стажёров/основных и удаляет стажёров только в своём отделе.
 * **manager** — видит, повышает и удаляет сотрудников своего отдела.
 
+Сброс пароля сотрудника из панели (кнопка «Пароль») доступен admin и manager, HR — только стажёрам. Пароль генерируется, показывается один раз, в AD включается смена при первом входе. Работает при `AD_SYNC_CHANGES=true` (или `DRY_RUN=true`).
+
 ## 📦 Бэкапы
-Бэкапы создаются автоматически в папке `backups`. Чтобы восстановить базу, скопируйте нужный файл из `backups` в `instance/hr.db` и перезапустите контейнер.
+* **Docker (PostgreSQL):** сервис `db-backup` раз в сутки делает `pg_dump` в `backups/hr_*.sql.gz` (7 последних). Восстановление: `gunzip -c backups/hr_....sql.gz | docker compose exec -T db psql -U hrpanel hrpanel`.
+* **Локально (SQLite):** копия `instance/hr.db` каждый день в 03:00 (при `FLASK_ENV=production`).
 
 ## 📌 NEXT STEPS (Планы)
 1. Перенести проект на тестовую ВМ (Proxmox) с доступом к контроллеру домена.

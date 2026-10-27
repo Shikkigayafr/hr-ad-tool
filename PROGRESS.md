@@ -89,3 +89,14 @@
 - [x] Docker: `.env` через `env_file`, `pysaby` в requirements. `init-db` больше не создаёт пользователей с известными паролями.
 - [x] 39 автотестов (`python -m pytest`).
 - [ ] Не проверено на живых системах: `AD_SYNC_CHANGES` (повышение/удаление в AD), `SABY_ENABLED`.
+
+## 2026-10-27 (вечер): инфраструктура и рефакторинг
+- [x] `app.py` разбит на пакет `hrpanel/` (фабрика, блоки маршрутов, security, services, логирование).
+- [x] PostgreSQL в Docker + миграции (Flask-Migrate/Alembic), старые SQLite-базы «усыновляются» автоматически; скрипт переноса данных `scripts/sqlite_to_postgres.py`.
+- [x] Docker secrets (`secrets/`, `scripts/init_secrets.py`), чтение секретов через `secret_utils.py`.
+- [x] JSON-логи (stdout + файл с ротацией), аудит-события, `request_id`.
+- [x] Версии зависимостей закреплены.
+- [x] Сброс пароля сотрудника из панели (AD, смена при первом входе).
+- [x] Ежедневный `pg_dump` (сервис `db-backup`).
+- [x] 57 тестов; проверено на PostgreSQL 16 в Docker (миграции, тесты, перенос данных, HTTP-сценарий).
+- [ ] Не проверено на живых системах: `AD_SYNC_CHANGES` (повышение, удаление, сброс пароля в AD), `SABY_ENABLED`.

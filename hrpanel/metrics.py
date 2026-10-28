@@ -47,7 +47,7 @@ KNOWN_AUDIT_EVENTS = (
     "employee_created", "employee_create_failed", "employees_imported", "employee_promoted",
     "employee_disabled", "employee_enabled", "employee_deleted",
     "password_reset", "password_reset_failed", "password_changed",
-    "panel_user_created", "panel_user_deleted", "panel_user_password_reset", "saby_create",
+    "panel_user_created", "panel_user_deleted", "panel_user_password_reset", "saby_create", "yandex_create", "saby_dismiss",
 )
 
 WS_CLIENTS = Gauge("hrpanel_websocket_clients", "Подключённые WebSocket-клиенты (вкладки с лентой событий)", registry=REGISTRY)
@@ -66,9 +66,15 @@ SABY_DURATION = Histogram("hrpanel_saby_operation_duration_seconds", "Время
                           buckets=(0.25, 0.5, 1, 2.5, 5, 10, 30, 60), registry=REGISTRY)
 SABY_LAST_SUCCESS = Gauge("hrpanel_saby_last_success_timestamp_seconds", "Unix-время последней успешной операции с Saby",
                           ["operation"], registry=REGISTRY)
+YANDEX_OPS = Counter("hrpanel_yandex_operations_total", "Операции с Яндекс 360 по результату", ["operation", "result"], registry=REGISTRY)
+YANDEX_DURATION = Histogram("hrpanel_yandex_operation_duration_seconds", "Время операции с Яндекс 360", ["operation"],
+                            buckets=(0.25, 0.5, 1, 2.5, 5, 10, 30, 60), registry=REGISTRY)
+YANDEX_LAST_SUCCESS = Gauge("hrpanel_yandex_last_success_timestamp_seconds", "Unix-время последней успешной операции с Яндекс 360",
+                            ["operation"], registry=REGISTRY)
 
 AD_OPERATIONS = ("create_user", "change_group", "disable_user", "enable_user", "delete_user", "reset_password")
-SABY_OPERATIONS = ("create_user",)
+SABY_OPERATIONS = ("create_user", "dismiss_user")
+YANDEX_OPERATIONS = ("create_user",)
 RESULTS = ("ok", "fail", "error")
 
 
@@ -82,6 +88,9 @@ def _prime_series():
     for operation in SABY_OPERATIONS:
         for result in RESULTS:
             SABY_OPS.labels(operation, result)
+    for operation in YANDEX_OPERATIONS:
+        for result in RESULTS:
+            YANDEX_OPS.labels(operation, result)
 
 
 _prime_series()
@@ -178,6 +187,7 @@ def register_metrics(app):
     APP_INFO.clear()
     APP_INFO.labels(app.config.get("APP_VERSION", "dev"), uri.split(":")[0].split("+")[0] or "unknown").set(1)
     for flag, value in (("dry_run", ad_utils.DRY_RUN), ("saby_enabled", app.config.get("SABY_ENABLED")),
+                        ("yandex_enabled", app.config.get("YANDEX_ENABLED")),
                         ("ad_sync_changes", app.config.get("AD_SYNC_CHANGES"))):
         FEATURE_FLAGS.labels(flag).set(1 if value else 0)
 

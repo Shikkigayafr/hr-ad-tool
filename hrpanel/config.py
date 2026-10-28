@@ -60,6 +60,7 @@ def apply_config(app, overrides: dict | None = None) -> None:
         SESSION_COOKIE_HTTPONLY=True,
         # Флаги интеграций (по умолчанию выключены — безопасно для разработки без AD/Saby)
         SABY_ENABLED=env_bool("SABY_ENABLED"),
+        YANDEX_ENABLED=env_bool("YANDEX_ENABLED"),
         AD_SYNC_CHANGES=env_bool("AD_SYNC_CHANGES"),
         TRUST_PROXY=env_bool("TRUST_PROXY"),
         # /metrics отдаётся только с этим токеном (Authorization: Bearer ...). Пусто — эндпоинт отключён (404)

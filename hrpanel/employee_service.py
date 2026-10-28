@@ -7,7 +7,7 @@ from flask import current_app, g
 
 import ad_utils
 from hrpanel.extensions import db
-from hrpanel.integrations import call_ad, call_saby
+from hrpanel.integrations import call_ad, call_saby, call_yandex
 from hrpanel.logging_config import audit
 from hrpanel.services import DEPARTMENTS, EMPLOYEE_ROLES, log_action, notify_action
 from hrpanel.validators import EMAIL_RE, LOGIN_RE, NAME_RE, generate_password, password_error
@@ -103,6 +103,17 @@ def create_employee(full_name, login, email, password, department, role, confirm
             saby_ok, saby_msg = False, f"Ошибка Saby: {e}"
         audit("saby_create", login=login, ok=saby_ok)
         message += f" | Saby: {saby_msg}"
+
+    if current_app.config["YANDEX_ENABLED"]:
+        # Яндекс 360 не критичен: ошибка не отменяет создание в AD
+        try:
+            from yandex_utils import create_yandex_user
+            y_ok, y_msg = call_yandex("create_user", create_yandex_user, full_name, login, password, department)
+        except Exception as e:
+            log.exception("Ошибка Яндекс 360 при создании %s", login)
+            y_ok, y_msg = False, f"Ошибка Яндекс 360: {e}"
+        audit("yandex_create", login=login, ok=y_ok)
+        message += f" | Яндекс: {y_msg}"
     return True, message, 200
 
 

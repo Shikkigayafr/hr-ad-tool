@@ -9,7 +9,7 @@ from flask import Blueprint, current_app, g, jsonify, make_response, request
 import ad_utils
 from hrpanel.employee_service import ImportFileError, create_employee, import_employees, normalize_name, template_csv
 from hrpanel.extensions import db
-from hrpanel.integrations import call_ad
+from hrpanel.integrations import call_ad, call_saby
 from hrpanel.logging_config import audit
 from hrpanel.security import api_login_required, api_roles_required
 from hrpanel.services import iso, log_action, notify_action, scoped_employees
@@ -160,6 +160,25 @@ def disable_employee(emp_id):
         if not ok:
             return jsonify({"ok": False, "message": message}), 500
 
+    extra = ""
+    if current_app.config["SABY_ENABLED"]:
+        # В СБИС не удаляем (есть связанные документы/сделки) — увольняем: ставим дату увольнения.
+        # Ищем сотрудника по ФИО → увольняем по числовому Идентификатору (надёжно, не создаёт дублей).
+        # Ошибка СБИС не отменяет отключение в панели/AD.
+        try:
+            from saby_utils import dismiss_saby_user, find_saby_id
+            saby_id, note = find_saby_id(emp.full_name)
+            if saby_id:
+                s_ok, s_msg = call_saby("dismiss_user", dismiss_saby_user,
+                                        full_name=emp.full_name, saby_id=saby_id)
+            else:
+                s_ok, s_msg = False, f"не уволен ({note})"
+        except Exception as e:
+            logging.getLogger("hrpanel").exception("Ошибка СБИС при увольнении %s", emp.login)
+            s_ok, s_msg = False, f"Ошибка СБИС: {e}"
+        audit("saby_dismiss", login=emp.login, ok=s_ok)
+        extra = f" | СБИС: {s_msg}"
+
     emp.is_active = False
     emp.disabled_at = datetime.utcnow()
     emp.disabled_reason = reason or None
@@ -168,7 +187,7 @@ def disable_employee(emp_id):
     db.session.commit()
     notify_action(text)
     audit("employee_disabled", login=emp.login, reason=reason)
-    return jsonify({"ok": True, "message": "Сотрудник отключён"})
+    return jsonify({"ok": True, "message": "Сотрудник отключён" + extra})
 
 
 @bp.route("/api/employee/<int:emp_id>/enable", methods=["POST"])

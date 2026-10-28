@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from secret_utils import read_secret
 from pysaby import SABYManager
@@ -96,3 +96,95 @@ def create_saby_user(full_name, login, password, department_name, position_id="3
 
     except Exception as e:
         return False, f"Ошибка: {str(e)}"
+
+
+def dismiss_saby_user(login=None, full_name=None, saby_id=None):
+    """Увольняет сотрудника в СБИС (НЕ удаляет — карточка и документы/сделки сохраняются).
+
+    Проставляет ДатаУвольнения = ВЧЕРА, чтобы увольнение считалось уже наступившим и доступ
+    блокировался сразу (если поставить сегодняшнюю, доступ может сняться только со следующего дня).
+
+    Сотрудник ищется по числовому `saby_id` (Идентификатор из СБИС.СписокСотрудников) — это
+    надёжнее всего и работает для любых сотрудников. Если id нет — по `login` (подходит для
+    заведённых через панель, у них ИдентификаторИС = login). Возвращает (ok, сообщение).
+    """
+    if not saby_id and not login:
+        return False, "СБИС: нужен либо saby_id, либо login"
+
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
+    today = datetime.now().strftime("%d.%m.%Y")
+
+    if saby_id:
+        base = {"Идентификатор": int(saby_id), "ДоступВСистему": "Нет",
+                "НашаОрганизация": {"СвФЛ": {"ИНН": SABY_ORG_INN}}}
+    else:
+        base = {
+            "Логин": login,
+            "ИдентификаторИС": login,
+            "ВнешнийИдентификатор": login,
+            "ДоступВСистему": "Нет",
+            "НашаОрганизация": {"СвФЛ": {"ИНН": SABY_ORG_INN}},
+        }
+    if full_name:
+        parts = full_name.split()
+        base["Фамилия"] = parts[0] if parts else ""
+        base["Имя"] = parts[1] if len(parts) > 1 else ""
+        if len(parts) > 2:
+            base["Отчество"] = parts[2]
+
+    def _write(date_str):
+        employee = dict(base, **{"ДатаУвольнения": date_str})
+        return SABYManager(login=SABY_LOGIN, password=SABY_PASSWORD).send_query(
+            "СБИС.ЗаписатьСотрудника", {"Параметр": {"Сотрудник": employee}})
+
+    def _is_hire_conflict(x):
+        # СБИС не даёт дату увольнения раньше даты приёма (pysaby кидает исключение с этим текстом)
+        return "раньше даты приема" in str(x).lower()
+
+    # Пробуем «вчера»; если конфликт с датой приёма (принят сегодня) — «сегодня».
+    for date_str in (yesterday, today):
+        try:
+            result = _write(date_str)
+        except Exception as e:
+            if date_str == yesterday and _is_hire_conflict(e):
+                continue
+            return False, f"Ошибка СБИС при увольнении: {e}"
+        err = result.get("error") if isinstance(result, dict) else None
+        if err:
+            if date_str == yesterday and _is_hire_conflict(err):
+                continue
+            return False, f"СБИС не уволил: {err}"
+        return True, f"уволен в СБИС (дата {date_str}, доступ закрыт)"
+    return False, "СБИС: не удалось уволить (конфликт даты)"
+
+
+def find_saby_id(full_name):
+    """Ищет числовой Идентификатор сотрудника в СБИС по ФИО (среди действующих).
+
+    Возвращает (saby_id, note). saby_id=None, если не найден или совпадений несколько
+    (в этом случае увольнять вслепую нельзя — вернём None и причину).
+    """
+    want = " ".join(full_name.split()).strip().lower()
+    try:
+        manager = SABYManager(login=SABY_LOGIN, password=SABY_PASSWORD)
+        res = manager.send_query(
+            "СБИС.СписокСотрудников",
+            {"Параметр": {"Фильтр": {"НашаОрганизация": {"СвФЛ": {"ИНН": SABY_ORG_INN}}}}})
+    except Exception as e:
+        return None, f"ошибка запроса СБИС: {e}"
+
+    employees = res.get("Сотрудник") if isinstance(res, dict) else None
+    if isinstance(employees, dict):
+        employees = [employees]
+
+    matches = []
+    for e in (employees or []):
+        fio = " ".join(p for p in (e.get("Фамилия"), e.get("Имя"), e.get("Отчество")) if p).strip().lower()
+        if fio == want:
+            matches.append(e.get("Идентификатор"))
+
+    if len(matches) == 1:
+        return matches[0], "найден"
+    if not matches:
+        return None, "в СБИС не найден"
+    return None, f"неоднозначно: {len(matches)} совпадений по ФИО"

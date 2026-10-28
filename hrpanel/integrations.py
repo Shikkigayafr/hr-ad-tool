@@ -28,3 +28,7 @@ def call_ad(operation: str, func, *args, **kwargs):
 
 def call_saby(operation: str, func, *args, **kwargs):
     return _call(metrics.SABY_OPS, metrics.SABY_DURATION, metrics.SABY_LAST_SUCCESS, operation, func, args, kwargs)
+
+
+def call_yandex(operation: str, func, *args, **kwargs):
+    return _call(metrics.YANDEX_OPS, metrics.YANDEX_DURATION, metrics.YANDEX_LAST_SUCCESS, operation, func, args, kwargs)

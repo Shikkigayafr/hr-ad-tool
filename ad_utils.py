@@ -18,7 +18,7 @@ BASE_DN = os.getenv("BASE_DN", "DC=yourdomain,DC=local")
 USERS_OU = os.getenv("USERS_OU", "OU=NewUsers,DC=yourdomain,DC=local")
 
 # Домен для UPN (login@домен) и OU с группами безопасности
-AD_DOMAIN = os.getenv("AD_DOMAIN", "corp.local")
+AD_DOMAIN = os.getenv("AD_DOMAIN", "evostore.local")
 GROUPS_OU = os.getenv("GROUPS_OU", f"OU=Groups,{BASE_DN}")
 # Сюда переезжают отключённые (уволенные) учётки
 DISABLED_OU = os.getenv("DISABLED_OU", f"OU=Disabled,{BASE_DN}")
@@ -68,7 +68,7 @@ def create_user(full_name: str, login: str, password: str, department: str = Non
     try:
         # Формируем путь (DN) в зависимости от выбранного отдела
         if department:
-            # Пользователь падает в OU=Отдел,OU=Departments,DC=corp,DC=local
+            # Пользователь падает в OU=Отдел,OU=Departments,DC=evostore,DC=local
             target_ou = f"OU={escape_rdn(department)},OU=Departments,{BASE_DN}"
         else:
             target_ou = USERS_OU

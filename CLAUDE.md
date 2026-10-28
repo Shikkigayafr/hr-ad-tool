@@ -20,6 +20,7 @@ Flask-панель, через которую HR создаёт учётные �
 - В корне остались: `models.py`, `ad_utils.py` (LDAPS: создание, группы, удаление, сброс пароля), `saby_utils.py`/`saby_config.py`, `backup_utils.py`, `secret_utils.py` (чтение секретов).
 - `templates/`, `static/` — Jinja, чистый JS, `style.css`. Все данные из API вставляются через `esc()` (в `base.html`).
 - `migrations/`, `scripts/` (`init_secrets.py`, `sqlite_to_postgres.py`), `tests/`.
+- `monitoring/` — шаблон Zabbix 6.0, Prometheus (`prometheus.yml`, `alerts.yml`), Grafana (provisioning + дашборд `hrpanel.json`), `README.md` со списком метрик. Метрики: `hrpanel/metrics.py` (эндпоинт `/metrics` в `blueprints/system.py`, токен `METRICS_TOKEN`; без токена 404), вызовы AD/Saby оборачивает `hrpanel/integrations.py` (`call_ad`, `call_saby`) — новые операции с AD вызывать только через них. Дашборд и шаблон Zabbix сгенерированы скриптами (в репозитории только результат): правьте осторожно, `tests/test_metrics.py` проверяет, что они ссылаются лишь на существующие метрики.
 - `infra/` — `inventory/` (инвентаризация ПК без домена), `ad/` (структура AD, GPO как код; `structure.json` обязан совпадать с `saby_config.py` — это проверяет тест), `deploy/` (раздача программ через GPO). Все `.ps1` — в UTF-8 **с BOM** (иначе Windows PowerShell 5.1 портит кириллицу), `.bat` — только ASCII.
 - `scripts/saby_debug/` — разовые отладочные скрипты (`probe_*.py`, `get_*.py`) для **боевого** Saby, не тесты (`pytest.ini` собирает только `tests/`). Запускать вручную из корня проекта: `python scripts/saby_debug/get_ids.py`. `scripts/check_logs.py` — вывод журнала из БД.
 
@@ -60,7 +61,7 @@ Flask-панель, через которую HR создаёт учётные �
 - PowerShell-скрипты `infra/` проверены только парсером (не запускались): сначала лаборатория / один тестовый ПК.
 - Windows Home в домен не вводится — `infra/inventory` покажет, где какая редакция.
 - Проверка сертификата LDAPS включается переменной `AD_CA_CERTS_FILE` (путь к PEM с сертификатом DC); пока она не задана, работает режим `CERT_NONE` с предупреждением. Включить на работе и проверить.
-- Нет метрик (Prometheus/Zabbix) — отложено, пока нет Zabbix/Grafana.
+- Шаблон Zabbix проверен на Zabbix 6.0.49 (импорт, сбор, триггеры); на 7.0 не проверялся. Особенности формата: триггеры — отдельный блок верхнего уровня; агрегация в Prometheus pattern — `function` + `sum`; `value_type` указывать всегда; `nodata()` требует хранимой истории элемента.
 - `scripts/create_admin.py` — старая утилита; админа лучше заводить через `init-db`.
 
 ## Правила работы

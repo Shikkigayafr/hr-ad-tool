@@ -1,0 +1,50 @@
+# Правила оповещений. Они видны в Prometheus (вкладка Alerts); отправка уведомлений
+# (почта, Telegram) настраивается в Alertmanager или в Grafana Alerting — здесь только условия.
+groups:
+  - name: hrpanel
+    rules:
+      - alert: HrPanelDown
+        expr: up{job="hrpanel"} == 0
+        for: 3m
+        labels: {severity: critical}
+        annotations:
+          summary: "HR-панель недоступна (или /metrics не отдаётся)"
+
+      - alert: HrPanelDatabaseDown
+        expr: hrpanel_database_up == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Приложение не получает ответ от базы данных"
+
+      - alert: HrPanelAdConnectionErrors
+        expr: sum(increase(hrpanel_ad_operations_total{result="error"}[15m])) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: "Есть операции, не дошедшие до AD (сеть, LDAPS, сертификат)"
+
+      - alert: HrPanelAdRejects
+        expr: sum(increase(hrpanel_ad_operations_total{result="fail"}[15m])) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: "AD отклоняет операции (права svc_hr, занятый логин)"
+
+      - alert: HrPanelManyFailedLogins
+        expr: hrpanel_logins_recent{result="failed",window="15m"} >= 20
+        labels: {severity: warning}
+        annotations:
+          summary: "Много неудачных входов за 15 минут — возможен подбор пароля"
+
+      - alert: HrPanelServerErrors
+        expr: rate(hrpanel_http_server_errors_total[5m]) > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Приложение отвечает ошибками 5xx"
+
+      - alert: HrPanelSlowResponses
+        expr: histogram_quantile(0.95, sum by (le)(rate(hrpanel_http_request_duration_seconds_bucket[5m]))) > 2
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "p95 времени ответа больше 2 секунд"

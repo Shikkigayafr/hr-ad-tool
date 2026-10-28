@@ -42,6 +42,7 @@ services:
       - postgres_password
       - ad_password
       - saby_password
+      - metrics_token                 # доступ к /metrics (Zabbix / Prometheus)
     volumes:
       # Именованные тома: Docker копирует в них права из образа (запись для пользователя app, uid 10001)
       - avatars:/app/static/avatars
@@ -123,3 +124,5 @@ secrets:
     file: ./secrets/ad_password.txt
   saby_password:
     file: ./secrets/saby_password.txt
+  metrics_token:
+    file: ./secrets/metrics_token.txt

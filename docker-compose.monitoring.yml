@@ -1,0 +1,55 @@
+# Необязательный мониторинг: Prometheus + Grafana. Подключается поверх основного compose:
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+# Grafana: http://127.0.0.1:3000 (логин admin, пароль — secrets/grafana_admin_password.txt)
+# Оба порта открыты только на localhost; наружу публикуйте через reverse-proxy с HTTPS.
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - promdata:/prometheus
+    secrets:
+      - metrics_token
+    depends_on:
+      - hr-ad-panel
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    secrets:
+      - grafana_admin_password
+    depends_on:
+      - prometheus
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+
+volumes:
+  promdata:
+  grafanadata:
+
+secrets:
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password.txt

@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: hrpanel
+    orgId: 1
+    folder: HR-панель
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false        # правки в интерфейсе не сохраняются: источник правды — JSON в репозитории
+    options:
+      path: /var/lib/grafana/dashboards

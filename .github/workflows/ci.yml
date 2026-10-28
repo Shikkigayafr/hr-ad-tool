@@ -77,6 +77,22 @@ jobs:
       - name: Работает не от root
         run: test "$(docker exec smoke id -u)" != "0"
 
+  monitoring:
+    name: Конфигурация Prometheus и Grafana
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: promtool — проверка prometheus.yml и правил оповещений
+        run: |
+          echo ci-token > /tmp/metrics_token
+          docker run --rm --entrypoint promtool             -v "$PWD/monitoring/prometheus:/etc/prometheus:ro"             -v /tmp/metrics_token:/run/secrets/metrics_token:ro             prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus.yml
+      - name: Дашборд Grafana — валидный JSON
+        run: python -c "import json; json.load(open('monitoring/grafana/dashboards/hrpanel.json', encoding='utf-8'))"
+      - name: compose с мониторингом
+        run: |
+          python scripts/init_secrets.py
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml config -q
+
   powershell:
     name: Синтаксис PowerShell-скриптов
     runs-on: windows-latest

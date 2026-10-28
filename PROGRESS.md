@@ -111,3 +111,10 @@
 - [x] GitHub Actions (тесты SQLite/PostgreSQL, Docker + /health + non-root, парсер PowerShell) и Dependabot.
 - [x] 81 тест; на PostgreSQL 16 проходят все, миграция 0003 проверена на БД с данными.
 - [ ] Не проверено на живых системах: AD (disable/enable/reset-password/delete), права в `02-Configure-AD.ps1`; PowerShell-скрипты не запускались.
+
+## 2026-10-28 (вечер): метрики и мониторинг
+- [x] `/metrics` (Prometheus), защита токеном (secret `metrics_token`), метрики запросов, аудита, AD/Saby, БД и бизнес-цифр из БД.
+- [x] Шаблон Zabbix (25 элементов, 7 триггеров), Prometheus + правила оповещений, Grafana с готовым дашбордом (`docker-compose.monitoring.yml`).
+- [x] Проверено на стенде в Docker: Prometheus (цель up), Grafana (29 запросов дашборда), Zabbix 6.0.49 (импорт, сбор 25/25, сработал триггер при остановке БД).
+- [x] CI: promtool, валидность дашборда, compose с мониторингом. 99+ тестов.
+- [ ] Не проверено: Zabbix 7.0; счётчики AD/Saby на живых системах (только имитация).

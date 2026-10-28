@@ -17,6 +17,8 @@ SECRETS_DIR = os.path.join(ROOT, "secrets")
 GENERATED = {
     "secret_key": lambda: secrets.token_hex(32),
     "postgres_password": lambda: secrets.token_urlsafe(24),
+    "metrics_token": lambda: secrets.token_urlsafe(32),   # для Zabbix/Prometheus: Authorization: Bearer ...
+    "grafana_admin_password": lambda: secrets.token_urlsafe(18),   # нужен только docker-compose.monitoring.yml
 }
 MANUAL = ["ad_password", "saby_password"]
 

@@ -1,0 +1,584 @@
+zabbix_export:
+  version: '6.0'
+  date: '2026-10-28T00:00:00Z'
+  groups:
+    - uuid: 3939544019ff41a1a6323e8667dd9bf8
+      name: Templates/Applications
+  templates:
+    - uuid: e3f4dd8abe314f42be8a7aa2d7805f1c
+      template: 'HR AD Panel by HTTP'
+      name: 'HR AD Panel by HTTP'
+      description: |
+        Метрики HR → AD Панели (эндпоинт /metrics, формат Prometheus).
+        Хосту задайте макросы {$HRPANEL.URL} и {$HRPANEL.METRICS.TOKEN} (токен из secrets/metrics_token.txt, лучше как секретный макрос).
+        Нужен Zabbix 6.0 или новее. Данные снимает один HTTP-запрос раз в минуту, остальные элементы зависимые.
+      groups:
+        - name: Templates/Applications
+      items:
+        - uuid: 8bd4fc82db164a37abf29cf57ee72109
+          name: 'HR-панель: метрики (сырые)'
+          type: HTTP_AGENT
+          key: hrpanel.metrics.raw
+          delay: 1m
+          history: 1h
+          trends: '0'
+          value_type: TEXT
+          description: 'Ответ /metrics целиком (хранится 1 час для триггера nodata), из него считаются зависимые элементы'
+          timeout: 10s
+          url: '{$HRPANEL.URL}/metrics'
+          headers:
+            - name: Authorization
+              value: 'Bearer {$HRPANEL.METRICS.TOKEN}'
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 27b75a8b58c04330a95ef7430df3f282
+          name: 'База данных: доступна (1/0)'
+          type: DEPENDENT
+          key: hrpanel.database.up
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          description: '1 — приложение получает ответ от БД'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_database_up'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: bf01793909454f09a94dcd988185d41c
+          name: 'База данных: время запроса'
+          type: DEPENDENT
+          key: hrpanel.database.query.seconds
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 's'
+          description: 'Время простого SELECT 1'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_database_query_seconds'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 5d834ee298ef4d1b896b02be7ff6210c
+          name: 'Сотрудников работает'
+          type: DEPENDENT
+          key: hrpanel.employees.active
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_employees{status="active"}'
+                - function
+                - sum
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 633364eddbe442ae948f6408511865dd
+          name: 'Сотрудников отключено'
+          type: DEPENDENT
+          key: hrpanel.employees.disabled
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_employees{status="disabled"}'
+                - function
+                - sum
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: ae9d20038a9f4b61a8c7a91ac669ce12
+          name: 'Создано сотрудников за 24 часа'
+          type: DEPENDENT
+          key: hrpanel.employees.created24h
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_employees_created_last_24h'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 5c6d68b83d62481f8cbf74aa0394a5ed
+          name: 'Пользователей панели с несменённым выданным паролем'
+          type: DEPENDENT
+          key: hrpanel.panelusers.pending
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          description: 'Не сменили выданный администратором пароль'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_panel_users_pending_password_change'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: e9635b44aee24686ab4cff94658b22ea
+          name: 'Неудачных входов за 15 минут'
+          type: DEPENDENT
+          key: hrpanel.logins.failed.15m
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          description: 'Всплеск — возможный подбор пароля'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_logins_recent{result="failed",window="15m"}'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 525af87f36fa441f9ae178fa085203d7
+          name: 'Успешных входов за 24 часа'
+          type: DEPENDENT
+          key: hrpanel.logins.success.24h
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_logins_recent{result="success",window="24h"}'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 7186b6ade89843ef86822e7d6eef5a24
+          name: 'WebSocket-клиентов (вкладок с лентой)'
+          type: DEPENDENT
+          key: hrpanel.websocket.clients
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_websocket_clients'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 7cf4f08bd8c2409dba9a922e209b98c1
+          name: 'HTTP-запросов в работе'
+          type: DEPENDENT
+          key: hrpanel.http.inprogress
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_http_requests_in_progress'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 74d8430e69984aa9923cc123308c1c69
+          name: 'HTTP-запросов в секунду'
+          type: DEPENDENT
+          key: hrpanel.http.requests.rate
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'rps'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_http_requests_handled_total'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: caaf55c146a84b128f401eea89132fca
+          name: 'HTTP-ошибок 5xx в секунду'
+          type: DEPENDENT
+          key: hrpanel.http.5xx.rate
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'rps'
+          description: 'Должно быть 0'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_http_server_errors_total'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 2cc63c4c53d845a4953a33746a7835fd
+          name: 'AD: ошибок связи в секунду'
+          type: DEPENDENT
+          key: hrpanel.ad.errors.rate
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'ops'
+          description: 'Нет связи с контроллером домена'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_ad_operations_total{result="error"}'
+                - function
+                - sum
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 48f7ac82811d4862989a3c8acd96298c
+          name: 'AD: отказов в секунду'
+          type: DEPENDENT
+          key: hrpanel.ad.fail.rate
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'ops'
+          description: 'AD ответил отказом (нет прав, учётка уже есть и т.п.)'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_ad_operations_total{result="fail"}'
+                - function
+                - sum
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: b523b3264a424bf1988c86488f9abe29
+          name: 'AD: успешных операций в секунду'
+          type: DEPENDENT
+          key: hrpanel.ad.ok.rate
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'ops'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_ad_operations_total{result="ok"}'
+                - function
+                - sum
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 8e4355fb319a4222859a448a8c50674d
+          name: 'Saby: ошибок в секунду'
+          type: DEPENDENT
+          key: hrpanel.saby.errors.rate
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'ops'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_saby_operations_total{result!="ok"}'
+                - function
+                - sum
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 29da56ce66be4b3d833c201f5091e60a
+          name: 'Создание сотрудников в секунду'
+          type: DEPENDENT
+          key: hrpanel.events.employee_created.rate
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'ops'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_audit_events_total{event="employee_created"}'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 8437c0ea163144d18e5f49a6a4a787ea
+          name: 'Сбросов пароля в секунду'
+          type: DEPENDENT
+          key: hrpanel.events.password_reset.rate
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'ops'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_audit_events_total{event="password_reset"}'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 35881adc4a224d08a739e9d521ed3a5a
+          name: 'Процесс: память (RSS)'
+          type: DEPENDENT
+          key: hrpanel.process.memory
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          units: 'B'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'process_resident_memory_bytes'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: c4113fb47962465ab59a78ff3790ac05
+          name: 'Процесс: загрузка CPU'
+          type: DEPENDENT
+          key: hrpanel.process.cpu
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: FLOAT
+          description: 'Ядер в секунду (1.0 = одно ядро полностью)'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'process_cpu_seconds_total'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 12d1748112f44728b6c87f2c5a533b87
+          name: 'Процесс: открытых файлов'
+          type: DEPENDENT
+          key: hrpanel.process.fds
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'process_open_fds'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 617024a7c64a4951aa24d7d796c20c2b
+          name: 'Режим DRY_RUN включён (1/0)'
+          type: DEPENDENT
+          key: hrpanel.flag.dry_run
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          description: '1 — AD не трогается, только имитация'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_feature_flag{flag="dry_run"}'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: a60a4f1b029e4a1f8884dada97cf39ea
+          name: 'AD_SYNC_CHANGES включён (1/0)'
+          type: DEPENDENT
+          key: hrpanel.flag.ad_sync_changes
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_feature_flag{flag="ad_sync_changes"}'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+        - uuid: 46364d9ff02e46168138499c80140c1c
+          name: 'SABY_ENABLED включён (1/0)'
+          type: DEPENDENT
+          key: hrpanel.flag.saby_enabled
+          delay: '0'
+          history: 14d
+          trends: 365d
+          value_type: UNSIGNED
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'hrpanel_feature_flag{flag="saby_enabled"}'
+                - value
+                - ''
+          master_item:
+            key: hrpanel.metrics.raw
+          tags:
+            - tag: component
+              value: hrpanel
+      macros:
+        - macro: '{$HRPANEL.URL}'
+          value: 'http://hr-ad-panel:5000'
+          description: 'Адрес панели с точки зрения Zabbix-сервера (без / в конце)'
+        - macro: '{$HRPANEL.METRICS.TOKEN}'
+          description: 'Токен метрик (secrets/metrics_token.txt). На хосте задайте как секретный макрос'
+        - macro: '{$HRPANEL.LOGIN_FAILED.MAX}'
+          value: '20'
+          description: 'Порог неудачных входов за 15 минут для триггера'
+        - macro: '{$HRPANEL.DB_LATENCY.MAX}'
+          value: '0.5'
+          description: 'Порог времени запроса к БД, секунд'
+  triggers:
+    - uuid: d9faa670b3304fc7b6ae3c81c86f0d61
+      expression: 'nodata(/HR AD Panel by HTTP/hrpanel.metrics.raw,5m)=1'
+      name: 'HR-панель: /metrics не отвечает 5 минут'
+      priority: HIGH
+      description: 'Приложение остановлено, недоступно по сети или не проходит токен ({$HRPANEL.METRICS.TOKEN}). Проверьте docker ps / docker logs hr_ad_panel.'
+    - uuid: 8ada1557ecd042e6b4c5b03b00dbe642
+      expression: 'last(/HR AD Panel by HTTP/hrpanel.database.up)=0'
+      name: 'HR-панель: база данных недоступна'
+      priority: HIGH
+      description: 'Приложение работает, но не получает ответ от БД. Проверьте контейнер db.'
+    - uuid: 0b29bad14ddd4c87a6e994a6c44ba96f
+      expression: 'avg(/HR AD Panel by HTTP/hrpanel.ad.errors.rate,15m)>0'
+      name: 'HR-панель: нет связи с AD'
+      priority: AVERAGE
+      description: 'За последние 15 минут были операции, не дошедшие до контроллера домена (сеть, LDAPS, сертификат).'
+    - uuid: acc508a46d914284827ae91344b336d2
+      expression: 'avg(/HR AD Panel by HTTP/hrpanel.ad.fail.rate,15m)>0'
+      name: 'HR-панель: AD отклоняет операции'
+      priority: WARNING
+      description: 'AD отвечает отказом: проверьте права svc_hr и журнал (logger hrpanel.audit).'
+    - uuid: 459a6d2ef9b24a78b34e7472dab6cbda
+      expression: 'last(/HR AD Panel by HTTP/hrpanel.logins.failed.15m)>={$HRPANEL.LOGIN_FAILED.MAX}'
+      name: 'HR-панель: много неудачных входов'
+      priority: WARNING
+      description: 'Возможен подбор пароля. Смотрите события login_failed / login_blocked в логах (IP в поле ip).'
+    - uuid: 82c38a7ebc0f40e7bd7861023e0833d4
+      expression: 'avg(/HR AD Panel by HTTP/hrpanel.http.5xx.rate,5m)>0'
+      name: 'HR-панель: ошибки сервера (5xx)'
+      priority: WARNING
+      description: 'Смотрите docker logs hr_ad_panel (JSON, status 5xx и необработанные исключения).'
+    - uuid: 39360f3564944e9b82f1b0d33b779e59
+      expression: 'min(/HR AD Panel by HTTP/hrpanel.database.query.seconds,5m)>{$HRPANEL.DB_LATENCY.MAX}'
+      name: 'HR-панель: БД отвечает медленно'
+      priority: WARNING
+      description: 'Простой запрос к БД дольше порога в течение 5 минут.'

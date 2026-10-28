@@ -1,7 +1,11 @@
 [
-  { "name": "7-Zip", "type": "winget", "id": "7zip.7zip" },
-  { "name": "Notepad++", "type": "winget", "id": "Notepad++.Notepad++" },
-  { "name": "Google Chrome", "type": "winget", "id": "Google.Chrome" },
-  { "name": "VLC", "type": "winget", "id": "VideoLAN.VLC" },
-  { "name": "Adobe Acrobat Reader", "type": "winget", "id": "Adobe.Acrobat.Reader.64-bit" }
+  { "name": "Google Chrome",   "type": "winget", "id": "Google.Chrome" },
+  { "name": "Яндекс Браузер",   "type": "winget", "id": "Yandex.Browser" },
+  { "name": "WinRAR",           "type": "winget", "id": "RARLab.WinRAR" },
+  { "name": "RustDesk",         "type": "winget", "id": "RustDesk.RustDesk" },
+  { "name": "AnyDesk",          "type": "winget", "id": "AnyDesk.AnyDesk" },
+
+  { "name": "RuDesk", "type": "exe", "path": "\\\\evostore.local\\NETLOGON\\deploy\\installers\\rudesk-setup.exe", "args": "/S", "detect": "RuDesk*" },
+  { "name": "Happ",   "type": "exe", "path": "\\\\evostore.local\\NETLOGON\\deploy\\installers\\happ-setup.exe",   "args": "/S", "detect": "Happ*" },
+  { "name": "UIS",    "type": "exe", "path": "\\\\evostore.local\\NETLOGON\\deploy\\installers\\uis-setup.exe",    "args": "/S", "detect": "UIS*" }
 ]

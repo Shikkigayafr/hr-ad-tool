@@ -42,7 +42,8 @@ function Ensure-Gpo([string]$Name, [string]$Comment) {
         $gpo = New-GPO -Name $Name -Comment $Comment
         Write-Host "  + GPO создана: $Name" -ForegroundColor Green
     }
-    if ($gpo -and -not (Get-GPInheritance -Target $workstationsOu).GpoLinks.DisplayName.Contains($Name)) {
+    $linkedNames = @((Get-GPInheritance -Target $workstationsOu).GpoLinks | ForEach-Object { $_.DisplayName })
+    if ($gpo -and ($Name -notin $linkedNames)) {
         if ($PSCmdlet.ShouldProcess($Name, "Привязать к $workstationsOu")) {
             New-GPLink -Name $Name -Target $workstationsOu -LinkEnabled Yes | Out-Null
             Write-Host "  + привязана к $workstationsOu" -ForegroundColor Green

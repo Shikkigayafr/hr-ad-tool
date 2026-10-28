@@ -9,17 +9,17 @@
     После создания леса сервер перезагрузится сам. Дальше — 02-Configure-AD.ps1.
 
 .PARAMETER DomainName
-    DNS-имя домена, например corp.local (для боевого лучше поддомен реального домена: ad.example.ru).
+    DNS-имя домена, например evostore.local (для боевого лучше поддомен реального домена: ad.example.ru).
 
 .PARAMETER NetbiosName
-    Короткое имя (до 15 символов), например CORP. Если не задано — берётся первая часть DomainName.
+    Короткое имя (до 15 символов), например EVOSTORE. Если не задано — берётся первая часть DomainName.
 
 .PARAMETER SafeModeAdministratorPassword
     Пароль режима восстановления служб каталогов (DSRM). Если не передан — будет запрошен. Сохраните его в менеджере паролей.
 
 .EXAMPLE
-    .\01-Install-ADDS.ps1 -DomainName corp.local -WhatIf
-    .\01-Install-ADDS.ps1 -DomainName corp.local
+    .\01-Install-ADDS.ps1 -DomainName evostore.local -WhatIf
+    .\01-Install-ADDS.ps1 -DomainName evostore.local
 #>
 #Requires -RunAsAdministrator
 [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]

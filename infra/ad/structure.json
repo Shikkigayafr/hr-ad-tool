@@ -1,8 +1,8 @@
 {
   "_comment": "Описание структуры AD для панели. Список отделов и групп должен совпадать с saby_config.py и models/hrpanel (это проверяет тест tests/test_infra_files.py).",
   "domain": {
-    "name": "corp.local",
-    "netbios": "CORP"
+    "name": "evostore.local",
+    "netbios": "EVOSTORE"
   },
   "serviceAccount": {
     "name": "svc_hr",

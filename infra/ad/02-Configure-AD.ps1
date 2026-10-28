@@ -85,8 +85,15 @@ foreach ($group in $cfg.groups) {
 # --- 3. Сервисная учётка ---
 Write-Host '== Сервисная учётка ==' -ForegroundColor Cyan
 $svc = $cfg.serviceAccount.name
-if (Get-ADUser -Filter "SamAccountName -eq '$svc'" -ErrorAction SilentlyContinue) {
+$svcUser = Get-ADUser -Filter "SamAccountName -eq '$svc'" -ErrorAction SilentlyContinue
+if ($svcUser) {
     Write-Host "  = учётка уже есть: $svc"
+    # Учётку, созданную вручную (обычно в CN=Users), переносим в ServiceAccounts — как на свежем домене
+    if ($svcUser.DistinguishedName -notlike "*,$($ou['serviceAccounts'])" -and
+        $PSCmdlet.ShouldProcess($svcUser.DistinguishedName, "Перенести в $($ou['serviceAccounts'])")) {
+        Move-ADObject -Identity $svcUser.DistinguishedName -TargetPath $ou['serviceAccounts']
+        Write-Host "  + перенесена в $($ou['serviceAccounts'])" -ForegroundColor Green
+    }
 }
 elseif ($PSCmdlet.ShouldProcess($svc, 'Создать сервисную учётку')) {
     if (-not $ServiceAccountPassword) { $ServiceAccountPassword = Read-Host "Пароль для $svc" -AsSecureString }
@@ -113,8 +120,20 @@ $userRights = @(
 # /I:S — права получают объекты ВНУТРИ OU (OU каждого отдела); /I:T — сама OU и всё внутри
 Grant $ou['departments'] $principal $userRights 'S'
 Grant $ou['newUsers']    $principal $userRights 'S'
-Grant $ou['disabled']    $principal $userRights 'T'     # сюда переезжают отключённые, учётки лежат прямо в OU
+Grant $ou['disabled']    $principal $userRights 'S'     # сюда переезжают отключённые; /I:S — права на user-объекты в OU (с типом объекта dsacls требует S, не T)
 Grant $ou['groups']      $principal @('WP;member;group') 'S'   # состав групп ролей
+
+# --- 4b. Перемещение учётки между OU (увольнение → Disabled и возврат) ---
+# Проверено в лаборатории: одного CCDC;user мало. Перенос (LDAP modDN) требует ещё:
+#  (а) запись свойств самого объекта (имя/расположение) — WP на user-объекты в обеих OU;
+#  (б) create/delete child на САМОЙ OU Disabled, а не только на её содержимом
+#      (dept-OU это право наследуют от Departments, а Disabled — лист, её надо делегировать напрямую).
+Grant $ou['departments'] $principal @('WP;;user') 'S'
+Grant $ou['disabled']    $principal @('WP;;user') 'S'
+if ($PSCmdlet.ShouldProcess($ou['disabled'], 'dsacls: create/delete child user на самом контейнере Disabled')) {
+    $out = & dsacls.exe $ou['disabled'] /G "${principal}:CCDC;user" 2>&1   # без /I — право ложится на сам контейнер
+    if ($LASTEXITCODE -ne 0) { throw "dsacls (контейнер Disabled) завершился с ошибкой:`n$out" }
+}
 
 # --- 5. Политика паролей (по желанию) ---
 if ($ApplyPasswordPolicy) {

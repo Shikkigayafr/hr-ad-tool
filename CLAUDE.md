@@ -46,7 +46,7 @@ Flask-панель, через которую HR создаёт учётные �
 - Вход: блокировка по таблице `LoginHistory` (5 неудач на пару IP+логин за 30 мин, 30 на IP). За proxy — `TRUST_PROXY=true`.
 
 ## Окружение и константы
-- Домен AD: `corp.local` (`AD_DOMAIN`, `BASE_DN`, `GROUPS_OU` в `.env`); пользователи создаются в `OU=<отдел>,OU=Departments,<BASE_DN>` (имя `Departments` зашито в `ad_utils.py`).
+- Домен AD: `evostore.local` (`AD_DOMAIN`, `BASE_DN`, `GROUPS_OU` в `.env`); пользователи создаются в `OU=<отдел>,OU=Departments,<BASE_DN>` (имя `Departments` зашито в `ad_utils.py`).
 - Сервисная учётка и домен сейчас тестовые (лаборатория на Proxmox), боевого AD ещё нет.
 - Разработка идёт на ПК вне домена, поэтому для проверки без AD ставить `DRY_RUN=true`.
 - Список отделов один: ключи `SABY_DEPARTMENTS` в `saby_config.py`.

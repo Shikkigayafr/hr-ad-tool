@@ -27,7 +27,7 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 Решение:
 
 Создать самоподписанный сертификат через PowerShell:
-New-SelfSignedCertificate -DnsName "WIN-0NEPP7V4NH4.corp.local", "WIN-0NEPP7V4NH4" -CertStoreLocation cert:\LocalMachine\My
+New-SelfSignedCertificate -DnsName "WIN-0NEPP7V4NH4.evostore.local", "WIN-0NEPP7V4NH4" -CertStoreLocation cert:\LocalMachine\My
 
 Скопировать этот сертификат из папки «Личное» в «Доверенные корневые центры сертификации» через certlm.msc.
 
@@ -48,7 +48,7 @@ New-SelfSignedCertificate -DnsName "WIN-0NEPP7V4NH4.corp.local", "WIN-0NEPP7V4NH
 Симптом: Ошибка создания: {'result': 68, 'description': 'entryAlreadyExists'...}
 Причина: Пользователь с таким логином уже существует в AD (возможно, остался от прошлых тестов).
 Решение: Сменить логин при создании, либо удалить старых тестовых пользователей через PowerShell:
-Get-ADUser -Filter * -SearchBase "OU=NewUsers,DC=corp,DC=local" | Remove-ADUser -Confirm:$false
+Get-ADUser -Filter * -SearchBase "OU=NewUsers,DC=evostore,DC=local" | Remove-ADUser -Confirm:$false
 
 
 ## 7. Saby: Ошибка "Убедитесь, что было передано поле \"organization\""

@@ -1,11 +1,46 @@
-.env
+# Python
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+
+# Окружение и секреты
+.env
+.env.*
+!.env.example
+.env.bak*
+
+# Секреты / сертификаты / ключи
+secrets/
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+*.ppk
+
+# Бэкапы и мусор
+*.bak
+backups/
+*.log
+logs/
+
+# Базы
 hr.db
 instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE / OS
 .vscode/
-backups/
-logs/
-secrets/
-*.log
+.idea/
+.DS_Store
+Thumbs.db
+
+# Фронтенд (если появится)
+node_modules/
+dist/
+build/

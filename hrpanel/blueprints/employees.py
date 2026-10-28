@@ -9,6 +9,7 @@ from flask import Blueprint, current_app, g, jsonify, make_response, request
 import ad_utils
 from hrpanel.employee_service import ImportFileError, create_employee, import_employees, normalize_name, template_csv
 from hrpanel.extensions import db
+from hrpanel.integrations import call_ad
 from hrpanel.logging_config import audit
 from hrpanel.security import api_login_required, api_roles_required
 from hrpanel.services import iso, log_action, notify_action, scoped_employees
@@ -123,8 +124,9 @@ def promote_employee(emp_id):
         return jsonify({"ok": False, "message": "Уже не стажер"}), 400
 
     if current_app.config["AD_SYNC_CHANGES"]:
-        ok, message = ad_utils.change_group(emp.login, from_group_dn=ad_utils.get_group_dn("Sbis_Stager"),
-                                            to_group_dn=ad_utils.get_group_dn("Sbis_Main"))
+        ok, message = call_ad("change_group", ad_utils.change_group, emp.login,
+                              from_group_dn=ad_utils.get_group_dn("Sbis_Stager"),
+                              to_group_dn=ad_utils.get_group_dn("Sbis_Main"))
         if not ok:
             return jsonify({"ok": False, "message": message}), 500
 
@@ -154,7 +156,7 @@ def disable_employee(emp_id):
     reason = str((request.get_json(silent=True) or {}).get("reason") or "").strip()[:100]
 
     if current_app.config["AD_SYNC_CHANGES"]:
-        ok, message = ad_utils.disable_user(emp.login, reason, group_dn=ad_utils.get_group_dn(emp.role))
+        ok, message = call_ad("disable_user", ad_utils.disable_user, emp.login, reason, group_dn=ad_utils.get_group_dn(emp.role))
         if not ok:
             return jsonify({"ok": False, "message": message}), 500
 
@@ -183,7 +185,7 @@ def enable_employee(emp_id):
         return jsonify({"ok": False, "message": "Сотрудник и так работает"}), 400
 
     if current_app.config["AD_SYNC_CHANGES"]:
-        ok, message = ad_utils.enable_user(emp.login, emp.department, group_dn=ad_utils.get_group_dn(emp.role))
+        ok, message = call_ad("enable_user", ad_utils.enable_user, emp.login, emp.department, group_dn=ad_utils.get_group_dn(emp.role))
         if not ok:
             return jsonify({"ok": False, "message": message}), 500
 
@@ -209,7 +211,7 @@ def delete_employee(emp_id):
         return jsonify({"ok": False, "message": "Сначала отключите сотрудника"}), 409
 
     if current_app.config["AD_SYNC_CHANGES"]:
-        ok, message = ad_utils.delete_user(emp.login)
+        ok, message = call_ad("delete_user", ad_utils.delete_user, emp.login)
         if not ok:
             return jsonify({"ok": False, "message": message}), 500
 
@@ -248,7 +250,7 @@ def reset_employee_password(emp_id):
         password = generate_password()
 
     try:
-        ok, message = ad_utils.reset_password(emp.login, password, must_change=True)
+        ok, message = call_ad("reset_password", ad_utils.reset_password, emp.login, password, must_change=True)
     except Exception as e:
         log.exception("Ошибка связи с AD при сбросе пароля %s", emp.login)
         ok, message = False, f"Ошибка связи с AD: {e}"

@@ -17,7 +17,7 @@ from flask import g, request
 
 from hrpanel.config import BASE_DIR, env_bool
 
-SKIP_REQUEST_LOG = {"static", "system.health_check"}
+SKIP_REQUEST_LOG = {"static", "system.health_check", "system.metrics"}
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 
 
@@ -76,6 +76,8 @@ def audit(event: str, **fields) -> None:
     except RuntimeError:  # вне запроса
         pass
     logging.getLogger("hrpanel.audit").info(event, extra={"fields": {"event": event, **actor, **fields}})
+    from hrpanel.metrics import AUDIT_EVENTS  # импорт здесь: metrics не должен зависеть от логирования
+    AUDIT_EVENTS.labels(event).inc()
 
 
 def register_request_logging(app) -> None:

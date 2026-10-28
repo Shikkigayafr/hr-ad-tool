@@ -7,6 +7,7 @@ from flask import current_app, g
 
 import ad_utils
 from hrpanel.extensions import db
+from hrpanel.integrations import call_ad, call_saby
 from hrpanel.logging_config import audit
 from hrpanel.services import DEPARTMENTS, EMPLOYEE_ROLES, log_action, notify_action
 from hrpanel.validators import EMAIL_RE, LOGIN_RE, NAME_RE, generate_password, password_error
@@ -75,8 +76,8 @@ def create_employee(full_name, login, email, password, department, role, confirm
         return False, problem[0], problem[1]
 
     try:
-        ok, message = ad_utils.create_user(full_name, login, password, department=department,
-                                           group_dn=ad_utils.get_group_dn(role), email=email or None)
+        ok, message = call_ad("create_user", ad_utils.create_user, full_name, login, password, department=department,
+                              group_dn=ad_utils.get_group_dn(role), email=email or None)
     except Exception as e:
         log.exception("Ошибка связи с AD при создании %s", login)
         ok, message = False, f"Ошибка связи с AD: {e}"
@@ -96,7 +97,7 @@ def create_employee(full_name, login, email, password, department, role, confirm
         # Saby не критичен: ошибка не отменяет создание в AD
         try:
             from saby_utils import create_saby_user
-            saby_ok, saby_msg = create_saby_user(full_name, login, password, department)
+            saby_ok, saby_msg = call_saby("create_user", create_saby_user, full_name, login, password, department)
         except Exception as e:
             log.exception("Ошибка Saby при создании %s", login)
             saby_ok, saby_msg = False, f"Ошибка Saby: {e}"

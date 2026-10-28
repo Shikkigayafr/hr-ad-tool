@@ -43,6 +43,9 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     setup_logging(app)
     register_request_logging(app)  # первым: задаёт request_id для остальных хуков
 
+    from hrpanel.metrics import register_metrics
+    register_metrics(app)
+
     db.init_app(app)
     migrate.init_app(app, db)
     socketio.init_app(app, cors_allowed_origins=app.config["CORS_ORIGINS"] or None)

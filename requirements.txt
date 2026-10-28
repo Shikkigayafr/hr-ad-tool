@@ -14,3 +14,4 @@ psycopg2-binary==2.9.13
 gunicorn==26.2.0
 gevent==26.9.0
 pysaby==0.1.4
+prometheus-client==0.26.0

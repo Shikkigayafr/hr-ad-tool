@@ -62,6 +62,9 @@ def apply_config(app, overrides: dict | None = None) -> None:
         SABY_ENABLED=env_bool("SABY_ENABLED"),
         AD_SYNC_CHANGES=env_bool("AD_SYNC_CHANGES"),
         TRUST_PROXY=env_bool("TRUST_PROXY"),
+        # /metrics отдаётся только с этим токеном (Authorization: Bearer ...). Пусто — эндпоинт отключён (404)
+        METRICS_TOKEN=read_secret("METRICS_TOKEN") or "",
+        APP_VERSION=os.environ.get("APP_VERSION", "dev"),
         # Socket.IO: по умолчанию только свой origin; другие — через запятую
         CORS_ORIGINS=[o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()],
     )

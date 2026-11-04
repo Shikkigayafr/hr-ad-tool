@@ -22,7 +22,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -48,7 +48,7 @@ jobs:
     env:
       TEST_DATABASE_URL: postgresql://hrpanel:hrpanel@localhost:5432/hrpanel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -61,7 +61,7 @@ jobs:
     name: Docker-образ и compose
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Проверка docker-compose.yml (с временными секретами)
         run: |
           python scripts/init_secrets.py
@@ -81,7 +81,7 @@ jobs:
     name: Конфигурация Prometheus и Grafana
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: promtool — проверка prometheus.yml и правил оповещений
         run: |
           echo ci-token > /tmp/metrics_token
@@ -97,7 +97,7 @@ jobs:
     name: Синтаксис PowerShell-скриптов
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Разбор всех .ps1 парсером (скрипты не выполняются)
         shell: powershell
         run: |

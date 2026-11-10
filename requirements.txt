@@ -4,7 +4,7 @@ Flask-Migrate==4.1.0
 Flask-SocketIO==5.7.0
 python-socketio==5.17.0
 simple-websocket==1.1.0
-SQLAlchemy==2.1.6
+SQLAlchemy==2.1.8
 Werkzeug==3.1.9
 ldap3==2.9.1
 python-dotenv==1.2.4

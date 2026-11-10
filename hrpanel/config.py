@@ -44,7 +44,11 @@ def database_uri() -> str:
 
 def apply_config(app, overrides: dict | None = None) -> None:
     secret_key = read_secret("SECRET_KEY")
+    if secret_key in {"change_me_to_random_64_hex_chars", "change-me", "changeme"}:
+        raise ValueError("Замените шаблонный SECRET_KEY случайным секретом")
     if not secret_key:
+        if os.environ.get("FLASK_ENV") == "production":
+            raise ValueError("В production необходимо задать постоянный SECRET_KEY")
         # Без SECRET_KEY сессии живут только до перезапуска. Задайте его в .env или secrets!
         log.warning("SECRET_KEY не задан — сгенерирован временный ключ, сессии сбросятся при перезапуске")
         secret_key = secrets.token_hex(32)
@@ -59,7 +63,7 @@ def apply_config(app, overrides: dict | None = None) -> None:
         SESSION_COOKIE_SECURE=env_bool("SESSION_COOKIE_SECURE"),  # true — если панель открывается по HTTPS
         SESSION_COOKIE_HTTPONLY=True,
         # Флаги интеграций (по умолчанию выключены — безопасно для разработки без AD/Saby)
-        SABY_ENABLED=env_bool("SABY_ENABLED"),
+        SABY_ENABLED=False,  # Отложено до явного запроса владельца; одной переменной окружения не включается.
         YANDEX_ENABLED=env_bool("YANDEX_ENABLED"),
         AD_SYNC_CHANGES=env_bool("AD_SYNC_CHANGES"),
         TRUST_PROXY=env_bool("TRUST_PROXY"),

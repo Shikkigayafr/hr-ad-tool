@@ -5,9 +5,23 @@ from flask import g
 
 from hrpanel.extensions import db, socketio
 from models import ActionLog, Employee
-from saby_config import SABY_DEPARTMENTS
-
-DEPARTMENTS = list(SABY_DEPARTMENTS.keys())
+# Список отделов панели/AD; не зависит от отложенной интеграции СБИС.
+DEPARTMENTS = [
+    "Отдел горячих продаж",
+    "Стажеры ТП",
+    "Колл Центр",
+    "Координатор",
+    "СММ",
+    "Контроль качества",
+    "Продление",
+    "Офис",
+    "Отдел исходящих звонков",
+    "Отдел входящих звонков",
+    "Отдел развития",
+    "Техническая поддержка",
+    "Облако",
+    "Удаленные"
+]
 EMPLOYEE_ROLES = ("Sbis_Stager", "Sbis_Main", "Sbis_Senior")
 PANEL_ROLES = ("admin", "hr", "manager")
 
@@ -38,6 +52,8 @@ def log_action(text):
 
 def notify_action(text):
     """Отправляет событие только тем, кто имеет право его видеть (как в /api/logs)."""
+    from hrpanel.sockets import prune_connections
+    prune_connections()
     payload = {"user": actor_name(), "action": text, "role": g.user.role}
     socketio.emit("new_log", payload, to="role:admin")
     if g.user.role == "hr" and g.user.department:

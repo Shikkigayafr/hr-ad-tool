@@ -22,3 +22,11 @@ def test_admin_cards_hidden_from_hr(as_user):
 def test_404_page_for_browser_requests(client):
     r = client.get("/no-such-page")
     assert r.status_code == 404 and "404" in r.get_data(as_text=True)
+
+
+def test_work_email_field_follows_mail_integration_flag(app, as_user, monkeypatch):
+    admin = as_user("admin")
+    monkeypatch.setitem(app.config, "YANDEX_ENABLED", False)
+    assert 'id="email"' not in admin.get("/create").get_data(as_text=True)
+    monkeypatch.setitem(app.config, "YANDEX_ENABLED", True)
+    assert 'id="email"' in admin.get("/create").get_data(as_text=True)

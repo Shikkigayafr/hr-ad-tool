@@ -23,7 +23,7 @@ load_dotenv(os.path.join(ROOT, ".env"))
 
 import ad_utils  # noqa: E402
 from hrpanel.validators import generate_password  # noqa: E402
-from saby_config import SABY_DEPARTMENTS  # noqa: E402
+from hrpanel.services import DEPARTMENTS  # noqa: E402
 
 results = []
 
@@ -53,7 +53,7 @@ def check(step, ok, message, condition, detail):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--login", default="smoke.test")
-    parser.add_argument("--dept", default="Офис", choices=list(SABY_DEPARTMENTS))
+    parser.add_argument("--dept", default="Офис", choices=DEPARTMENTS)
     parser.add_argument("--yes", action="store_true", help="подтверждаю: работаю с AD из .env")
     args = parser.parse_args()
 

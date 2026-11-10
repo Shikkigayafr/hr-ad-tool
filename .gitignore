@@ -44,3 +44,7 @@ Thumbs.db
 node_modules/
 dist/
 build/
+
+# Локальные архивы, не включать в коммит
+dont need/
+отложено до API ключа/

@@ -4,7 +4,7 @@ from flask import Blueprint, g, jsonify, request, session
 
 from hrpanel.extensions import db
 from hrpanel.logging_config import audit
-from hrpanel.security import LOCK_ATTEMPTS, client_ip, failed_attempts, login_lock_seconds
+from hrpanel.security import LOCK_ATTEMPTS, client_ip, failed_attempts, login_lock_seconds, session_auth_tag
 from models import LoginHistory, User
 
 bp = Blueprint("auth", __name__)
@@ -36,6 +36,7 @@ def login():
     if user and user.check_password(password):
         session.clear()  # новая сессия после входа
         session["user_id"] = user.id
+        session["auth_tag"] = session_auth_tag(user)
         session["csrf"] = secrets.token_hex(16)
         db.session.add(LoginHistory(username=username, ip_address=ip, success=True))
         db.session.commit()
@@ -64,5 +65,8 @@ def check_lockout():
 
 @bp.route("/api/logout", methods=["POST"])
 def logout():
+    from hrpanel.sockets import disconnect_user
+    if g.user:
+        disconnect_user(g.user.id, csrf=session.get("csrf"))
     session.clear()
     return jsonify({"ok": True})

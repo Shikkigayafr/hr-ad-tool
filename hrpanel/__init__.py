@@ -38,6 +38,10 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     app = Flask(__name__, root_path=BASE_DIR, instance_path=os.path.join(BASE_DIR, "instance"))
     app.json = CustomJSONProvider(app)
     apply_config(app, config_overrides)
+    if app.config["TRUST_PROXY"]:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        # Один доверенный proxy; адрес клиента отдельно берётся в client_ip().
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=0, x_proto=1, x_host=0)
 
     from hrpanel.logging_config import register_request_logging, setup_logging
     setup_logging(app)

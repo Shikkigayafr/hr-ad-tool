@@ -1,0 +1,50 @@
+name: hr-ad-desktop
+services:
+  hr-ad-panel:
+    build: .
+    image: hr-ad-tool:desktop
+    container_name: hr_ad_panel
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5000:5000"
+    env_file:
+      - .env
+    environment:
+      FLASK_ENV: production
+      FLASK_DEBUG: "0"
+      YANDEX_ENABLED: "false"
+      SABY_ENABLED: "false"
+      DATABASE_URL: sqlite:////app/instance/hr.db
+      SECRET_KEY_FILE: /run/secrets/secret_key
+      AD_PASSWORD_FILE: /run/secrets/ad_password
+      AD_CA_CERTS_FILE: /run/hrpanel/ldaps-ca.pem
+      LOG_DIR: /app/logs
+    secrets:
+      - secret_key
+      - ad_password
+    volumes:
+      - ./instance:/app/instance
+      - ./static/avatars:/app/static/avatars
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+      - ./secrets/ldaps-ca.pem:/run/hrpanel/ldaps-ca.pem:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 6
+secrets:
+  secret_key:
+    file: ./secrets/secret_key.txt
+  ad_password:
+    file: ./secrets/ad_password.txt

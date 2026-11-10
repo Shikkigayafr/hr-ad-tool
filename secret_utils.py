@@ -11,10 +11,13 @@ def read_secret(name: str, default: str | None = None) -> str | None:
     3. переменная окружения NAME (обычный .env);
     4. значение по умолчанию.
     """
-    path = os.getenv(f"{name}_FILE") or os.path.join(SECRETS_DIR, name.lower())
-    if os.path.isfile(path):
+    explicit_path = os.getenv(f"{name}_FILE")
+    path = explicit_path or os.path.join(SECRETS_DIR, name.lower())
+    if explicit_path or os.path.isfile(path):
         with open(path, encoding="utf-8") as f:
             value = f.read().strip()
         if value:
             return value
+        if explicit_path:
+            raise ValueError(f"Файл секрета {name}_FILE пуст")
     return os.getenv(name) or default

@@ -30,4 +30,4 @@ EXPOSE 5000
 
 # При старте применяем миграции БД (идемпотентно), затем запускаем Gunicorn
 # с gevent-воркером для WebSockets
-CMD ["sh", "-c", "flask --app app upgrade-db && exec gunicorn --worker-class gevent -w 1 -b 0.0.0.0:5000 app:app"]
+CMD ["sh", "-c", "flask --app app upgrade-db && exec gunicorn --no-control-socket --worker-class gevent -w 1 -b 0.0.0.0:5000 app:app"]

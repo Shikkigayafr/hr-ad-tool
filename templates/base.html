@@ -22,7 +22,8 @@
             const originalFetch = window.fetch;
             window.fetch = function (url, opts = {}) {
                 const method = (opts.method || 'GET').toUpperCase();
-                if (method !== 'GET' && method !== 'HEAD') {
+                const target = new URL(url instanceof Request ? url.url : url, window.location.href);
+                if (target.origin === window.location.origin && method !== 'GET' && method !== 'HEAD') {
                     const token = document.querySelector('meta[name="csrf-token"]').content;
                     opts = {...opts, headers: {...(opts.headers || {}), 'X-CSRF-Token': token}};
                 }

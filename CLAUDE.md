@@ -1,6 +1,6 @@
 # HR → AD Панель (Эвостор)
 
-Flask-панель, через которую HR создаёт учётные записи в Active Directory (и, при включении `SABY_ENABLED`, карточки в Saby/СБИС). Общаться с владельцем проекта (Карим, сисадмин) — **на русском**.
+Flask-панель, через которую HR создаёт учётные записи в Active Directory (интеграция Saby/СБИС временно отложена до отдельного запроса владельца). Общаться с владельцем проекта (Карим, сисадмин) — **на русском**.
 
 ## Стек и запуск
 - Python 3.11, Flask 3, Flask-SQLAlchemy, Flask-Migrate (Alembic), Flask-SocketIO, APScheduler, ldap3, pysaby. Версии закреплены в `requirements.txt`.
@@ -17,12 +17,12 @@ Flask-панель, через которую HR создаёт учётные �
   - `security.py` — сессии, CSRF, блокировка входа, декораторы прав; `services.py` — журнал, оповещения, выборки по правам; `validators.py` — проверки, генератор паролей.
   - `logging_config.py` — JSON-логи, `audit()`, логирование запросов; `errors.py`, `sockets.py`, `cli.py` (`upgrade-db`, `init-db`).
   - `employee_service.py` — создание сотрудника (общее для формы и CSV-импорта) и разбор CSV; `blueprints/` — `pages`, `auth`, `dashboard`, `employees`, `panel_users`, `profile`, `system`.
-- В корне остались: `models.py`, `ad_utils.py` (LDAPS: создание, группы, удаление, сброс пароля), `saby_utils.py`/`saby_config.py`, `backup_utils.py`, `secret_utils.py` (чтение секретов).
+- В корне остались: `models.py`, `ad_utils.py` (LDAPS: создание, группы, удаление, сброс пароля), `backup_utils.py`, `secret_utils.py` (чтение секретов).
 - `templates/`, `static/` — Jinja, чистый JS, `style.css`. Все данные из API вставляются через `esc()` (в `base.html`).
 - `migrations/`, `scripts/` (`init_secrets.py`, `sqlite_to_postgres.py`), `tests/`.
 - `monitoring/` — шаблон Zabbix 6.0, Prometheus (`prometheus.yml`, `alerts.yml`), Grafana (provisioning + дашборд `hrpanel.json`), `README.md` со списком метрик. Метрики: `hrpanel/metrics.py` (эндпоинт `/metrics` в `blueprints/system.py`, токен `METRICS_TOKEN`; без токена 404), вызовы AD/Saby оборачивает `hrpanel/integrations.py` (`call_ad`, `call_saby`) — новые операции с AD вызывать только через них. Дашборд и шаблон Zabbix сгенерированы скриптами (в репозитории только результат): правьте осторожно, `tests/test_metrics.py` проверяет, что они ссылаются лишь на существующие метрики.
-- `infra/` — `inventory/` (инвентаризация ПК без домена), `ad/` (структура AD, GPO как код; `structure.json` обязан совпадать с `saby_config.py` — это проверяет тест), `deploy/` (раздача программ через GPO). Все `.ps1` — в UTF-8 **с BOM** (иначе Windows PowerShell 5.1 портит кириллицу), `.bat` — только ASCII.
-- `scripts/saby_debug/` — разовые отладочные скрипты (`probe_*.py`, `get_*.py`) для **боевого** Saby, не тесты (`pytest.ini` собирает только `tests/`). Запускать вручную из корня проекта: `python scripts/saby_debug/get_ids.py`. `scripts/check_logs.py` — вывод журнала из БД.
+- `infra/` — `inventory/` (инвентаризация ПК без домена), `ad/` (структура AD, GPO как код; `structure.json` обязан совпадать со списком отделов в `hrpanel/services.py` — это проверяет тест), `deploy/` (раздача программ через GPO). Все `.ps1` — в UTF-8 **с BOM** (иначе Windows PowerShell 5.1 портит кириллицу), `.bat` — только ASCII.
+- `dont need/` — архив разовых экспериментов Saby, старой утилиты админа, Telegram-прокси и локальных резервных копий. Не импортируется панелью, исключён из Docker. Скрипты восстанавливать в исходное место перед ручным использованием; часть обращается к **боевому** Saby. `scripts/check_logs.py` — действующая утилита вывода журнала из БД.
 
 ## Роли и права
 - `admin` — всё, управляет пользователями панели (`/users`), создаёт Старших.
@@ -35,7 +35,7 @@ Flask-панель, через которую HR создаёт учётные �
 
 ## Флаги в `.env` (все выключены по умолчанию)
 - `DRY_RUN` — не обращаться к AD.
-- `SABY_ENABLED` — после AD создавать сотрудника в Saby (ошибка Saby не отменяет создание в AD).
+- СБИС отложена: `SABY_ENABLED` принудительно False, рабочие вызовы вынесены. Файлы и отдельная зависимость — в локальной папке `отложено до API ключа/`, исключённой из Git/Docker. Восстанавливать только по явному запросу владельца.
 - `AD_SYNC_CHANGES` — «Повысить»/«Отключить»/«Вернуть»/«Удалить»/сброс пароля меняют ещё и AD (сброс пароля без флага работает только при `DRY_RUN`). **Код не проверялся на живом AD** — сначала тестовый стенд.
 - `TRUST_PROXY`, `SESSION_COOKIE_SECURE`, `CORS_ORIGINS`, `LOG_*` — см. `.env.example`.
 
@@ -49,7 +49,7 @@ Flask-панель, через которую HR создаёт учётные �
 - Домен AD: `evostore.local` (`AD_DOMAIN`, `BASE_DN`, `GROUPS_OU` в `.env`); пользователи создаются в `OU=<отдел>,OU=Departments,<BASE_DN>` (имя `Departments` зашито в `ad_utils.py`).
 - Сервисная учётка и домен сейчас тестовые (лаборатория на Proxmox), боевого AD ещё нет.
 - Разработка идёт на ПК вне домена, поэтому для проверки без AD ставить `DRY_RUN=true`.
-- Список отделов один: ключи `SABY_DEPARTMENTS` в `saby_config.py`.
+- Рабочий список отделов AD: `DEPARTMENTS` в `hrpanel/services.py`; тест сверяет его с `infra/ad/structure.json`. Числовые ID СБИС отложены отдельно.
 
 ## Известные ограничения Saby
 - `sabyEmployee.UpdatePosition` работает с **кадровой** структурой и требует `organization`; управленческая (визуальное дерево) этим методом не заполняется.
@@ -60,9 +60,9 @@ Flask-панель, через которую HR создаёт учётные �
 - Реальная работа с AD и Saby не проверена (нет доступа вне офиса): `change_group`, `delete_user`, `disable_user`, `enable_user`, `reset_password`, интеграция Saby в `/api/create`, а также набор прав в `infra/ad/02-Configure-AD.ps1` (проверить в лаборатории, уточнить минимально нужные).
 - PowerShell-скрипты `infra/` проверены только парсером (не запускались): сначала лаборатория / один тестовый ПК.
 - Windows Home в домен не вводится — `infra/inventory` покажет, где какая редакция.
-- Проверка сертификата LDAPS включается переменной `AD_CA_CERTS_FILE` (путь к PEM с сертификатом DC); пока она не задана, работает режим `CERT_NONE` с предупреждением. Включить на работе и проверить.
+- LDAPS всегда проверяет сертификат и имя DC (`CERT_REQUIRED`). `AD_CA_CERTS_FILE` задаёт PEM внутреннего CA, без файла используются системные CA. Для лаборатории тоже нужен доверенный сертификат.
 - Шаблон Zabbix проверен на Zabbix 6.0.49 (импорт, сбор, триггеры); на 7.0 не проверялся. Особенности формата: триггеры — отдельный блок верхнего уровня; агрегация в Prometheus pattern — `function` + `sum`; `value_type` указывать всегда; `nodata()` требует хранимой истории элемента.
-- `scripts/create_admin.py` — старая утилита; админа лучше заводить через `init-db`.
+- `dont need/scripts/create_admin.py` — архивная утилита; админа заводить через `init-db`.
 
 ## Правила работы
 - Не запускать скрипты, создающие/меняющие записи в боевом Saby или AD, без явного согласия владельца.

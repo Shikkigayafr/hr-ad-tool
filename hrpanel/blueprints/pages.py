@@ -56,3 +56,12 @@ def page_employee_data():
         Employee.issued_password.is_not(None).label("has_password"),
     ).order_by(Employee.full_name, Employee.id).all()
     return render_template("employee_data.html", employees=employees)
+
+
+@bp.get("/integrations")
+@page_login_required("admin")
+def page_integrations():
+    employees = Employee.query.with_entities(
+        Employee.full_name, Employee.login, Employee.department, Employee.is_active,
+    ).order_by(Employee.full_name, Employee.id).all()
+    return render_template("integrations.html", employees=employees)

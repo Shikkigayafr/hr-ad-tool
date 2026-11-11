@@ -57,6 +57,12 @@
             {% endif %}
         </div>
 
+        {% if g.user and g.user.role == 'admin' %}
+        <div class="nav-integrations">
+            <a href="{{ url_for('pages.page_integrations') }}"{% if request.endpoint == 'pages.page_integrations' %} aria-current="page"{% endif %}>Интеграции</a>
+        </div>
+        {% endif %}
+
         <div class="nav-links">
             <button class="theme-toggle" id="theme-toggle" type="button" title="Сменить тему" aria-label="Сменить тему">🌗</button>
             {% if session.get('user_id') %}
@@ -73,7 +79,7 @@
 
     <!-- Обертка для контейнера и сайдбара -->
     <div class="main-wrapper">
-        <div class="container">
+        <div class="container{% block container_class %}{% endblock %}">
             {% block content %}{% endblock %}
         </div>
         

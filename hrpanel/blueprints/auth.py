@@ -3,6 +3,7 @@ import secrets
 from flask import Blueprint, g, jsonify, request, session
 
 from hrpanel.extensions import db
+from hrpanel.blueprints.first_run import local_setup_host
 from hrpanel.logging_config import audit
 from hrpanel.security import LOCK_ATTEMPTS, client_ip, failed_attempts, login_lock_seconds, session_auth_tag
 from models import LoginHistory, User
@@ -34,6 +35,8 @@ def login():
     user = User.query.filter_by(username=username).first() if username else None
 
     if user and user.check_password(password):
+        if user.setup_required and not local_setup_host():
+            return jsonify(ok=False, message="Первый вход доступен через localhost"), 403
         session.clear()  # новая сессия после входа
         session["user_id"] = user.id
         session["auth_tag"] = session_auth_tag(user)

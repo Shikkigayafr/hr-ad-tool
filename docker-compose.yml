@@ -21,7 +21,7 @@ services:
     build: .
     container_name: hr_ad_panel
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     depends_on:
       db:
         condition: service_healthy
@@ -36,6 +36,7 @@ services:
       - POSTGRES_USER=hrpanel
       - POSTGRES_DB=hrpanel
       - LOG_DIR=/app/logs
+      - DOMAIN_SETUP_DIR=/app/setup
     # Приложение читает секреты из /run/secrets/<имя> (см. secret_utils.py)
     secrets:
       - secret_key
@@ -47,7 +48,8 @@ services:
       # Именованные тома: Docker копирует в них права из образа (запись для пользователя app, uid 10001)
       - avatars:/app/static/avatars
       - logs:/app/logs
-      - ./instance:/app/instance:ro   # нужен только для переноса старой SQLite-базы (scripts/sqlite_to_postgres.py)
+      - ./instance:/app/instance:ro   # нужен только для переноса старой SQLite-базы
+      - domain_setup:/app/setup
     # --- Жёсткие настройки контейнера: файловая система только для чтения, без лишних прав ---
     read_only: true
     tmpfs:
@@ -111,6 +113,7 @@ services:
 
 volumes:
   pgdata:
+  domain_setup:
   avatars:
   logs:
 

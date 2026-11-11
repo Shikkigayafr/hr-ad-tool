@@ -32,15 +32,20 @@ def register_cli(app):
     @app.cli.command("init-db")
     @click.option("--demo", is_flag=True, help="Создать ещё и тестового HR (hr_out)")
     def init_db(demo):
-        """Применяет миграции и создаёт админа. Пароль: INITIAL_ADMIN_PASSWORD или генерируется."""
+        """Применяет миграции и создаёт первого администратора на пустой базе."""
         run_migrations()
-        if not User.query.filter_by(username="admin").first():
+        if User.query.first() is None:
             from secret_utils import read_secret
-            password = read_secret("INITIAL_ADMIN_PASSWORD") or secrets.token_urlsafe(12)
-            admin = User(username="admin", role="admin", first_name="Карим")
+            password = read_secret("INITIAL_ADMIN_PASSWORD") or "admin"
+            bootstrap = password == "admin"
+            admin = User(username="admin", role="admin", setup_required=bootstrap,
+                         must_change_password=bootstrap)
             admin.set_password(password)
             db.session.add(admin)
-            print(f"Админ создан: admin / {password}")
+            if bootstrap:
+                print("Первый вход: admin / admin. Завершите настройку через localhost.")
+            else:
+                print("Администратор admin создан с паролем из INITIAL_ADMIN_PASSWORD.")
         if demo and not User.query.filter_by(username="hr_out").first():
             password = secrets.token_urlsafe(12)
             hr = User(username="hr_out", role="hr", department="Отдел исходящих звонков", first_name="Анна")

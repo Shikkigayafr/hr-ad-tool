@@ -40,6 +40,8 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     apply_config(app, config_overrides)
     from hrpanel.employee_passwords import configure_employee_passwords
     configure_employee_passwords(app)
+    from hrpanel.domain_setup import load_settings
+    load_settings(app)
     if app.config["TRUST_PROXY"]:
         from werkzeug.middleware.proxy_fix import ProxyFix
         # Один доверенный proxy; адрес клиента отдельно берётся в client_ip().

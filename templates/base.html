@@ -15,7 +15,7 @@
     {% endif %}
     {% block styles %}{% endblock %}
     
-    {% if request.endpoint not in ('pages.page_employee_data', 'app_upload.page') %}
+    {% if request.endpoint not in ('pages.page_employee_data', 'app_upload.page', 'first_run.page') %}
     <!-- Chart.js для графиков -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Первый запуск</h1>
+{% if local_access %}
+<p>Укажите контроллер домена и сервисную учётку. Панель проверит подключение по LDAPS и предложит войти с новым паролем.</p>
+<form id="first-run-form" class="settings-card" method="post" action="{{ url_for('first_run.finish') }}">
+    <label for="setup-host">IP-адрес или DNS-имя контроллера</label>
+    <input id="setup-host" name="host" placeholder="dc01.corp.example" required>
+    <label for="setup-domain">DNS-имя домена</label>
+    <input id="setup-domain" name="domain" placeholder="corp.example" required>
+    <label for="setup-user">Сервисная учётка AD</label>
+    <input id="setup-user" name="domain_user" placeholder="svc_hr@corp.example" autocomplete="off" required>
+    <label for="setup-domain-password">Пароль сервисной учётки</label>
+    <input id="setup-domain-password" name="domain_password" type="password" autocomplete="off" required>
+    <label for="setup-ca">Сертификат CA в формате PEM</label>
+    <textarea id="setup-ca" name="ca" rows="4" maxlength="65536" placeholder="Можно оставить пустым, если CA уже доверен системой"></textarea>
+    <label for="setup-password">Новый пароль администратора панели</label>
+    <input id="setup-password" name="new_password" type="password" autocomplete="new-password" minlength="8" required>
+    <label for="setup-confirm">Подтверждение пароля администратора</label>
+    <input id="setup-confirm" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+    <button type="submit" class="btn-block">Проверить и сохранить</button>
+    <p id="setup-status" role="status" aria-live="polite"></p>
+</form>
+{% else %}
+<p>Для настройки откройте панель через localhost на компьютере, где она запущена.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if local_access %}<script src="{{ url_for('static', filename='first-run.js') }}" defer></script>{% endif %}
+{% endblock %}

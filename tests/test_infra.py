@@ -187,7 +187,7 @@ def test_migrations_on_fresh_database_are_idempotent(tmp_path):
         result = run_cli(db_path, "upgrade-db")
         assert result.returncode == 0, result.stderr
     assert {"user", "employee", "action_log", "login_history", "alembic_version"} <= table_names(db_path)
-    assert alembic_version(db_path) == "0004"
+    assert alembic_version(db_path) == "0005"
 
 
 def test_migrations_adopt_legacy_database_created_before_alembic(tmp_path):
@@ -209,7 +209,7 @@ def test_migrations_adopt_legacy_database_created_before_alembic(tmp_path):
         """)
     result = run_cli(db_path, "upgrade-db")
     assert result.returncode == 0, result.stderr
-    assert alembic_version(db_path) == "0004"
+    assert alembic_version(db_path) == "0005"
     with sqlite3.connect(db_path) as conn:   # данные на месте, новые колонки получили безопасные значения
         assert conn.execute("select username, must_change_password from user").fetchall() == [("old_admin", 0)]
         assert conn.execute("select full_name, is_active, disabled_at from employee").fetchall() == [("Старый Сотрудник", 1, None)]
@@ -223,6 +223,9 @@ def test_init_db_creates_admin_with_given_password(tmp_path):
     result = subprocess.run([sys.executable, "-m", "flask", "--app", "app", "init-db"], cwd=ROOT, env=env,
                             capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
-    assert f"admin / {env_pwd}" in result.stdout
+    assert env_pwd not in result.stdout
     with sqlite3.connect(db_path) as conn:
-        assert conn.execute("select username, role from user").fetchall() == [("admin", "admin")]
+        from werkzeug.security import check_password_hash
+        row = conn.execute("select username, role, setup_required, password_hash from user").fetchone()
+        assert row[:3] == ("admin", "admin", 0)
+        assert check_password_hash(row[3], env_pwd)

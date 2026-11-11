@@ -26,6 +26,7 @@ DISABLED_OU = os.getenv("DISABLED_OU", f"OU=Disabled,{BASE_DN}")
 
 # Путь к PEM-файлу с сертификатом (или корневым CA), которому доверяем при LDAPS
 AD_CA_CERTS_FILE = os.getenv("AD_CA_CERTS_FILE") or None
+AD_CA_CERTS_DATA = None
 
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 
@@ -40,7 +41,8 @@ def build_tls():
     host = urlsplit(AD_SERVER if "://" in AD_SERVER else f"ldaps://{AD_SERVER}").hostname
     if not host:
         raise ValueError("AD_SERVER должен содержать имя контроллера домена")
-    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=AD_CA_CERTS_FILE, valid_names=[host])
+    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=AD_CA_CERTS_FILE,
+               ca_certs_data=AD_CA_CERTS_DATA, valid_names=[host])
 
 
 def get_connection():

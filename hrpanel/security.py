@@ -150,10 +150,22 @@ def register_security(app):
             return jsonify({"ok": False, "message": "Сессия устарела, обновите страницу"}), 403
 
     @app.before_request
+    def enforce_first_run():
+        if not g.user or not g.user.setup_required:
+            return
+        if request.endpoint in {'static', 'system.health_check', 'auth.logout', 'first_run.page', 'first_run.finish'}:
+            return
+        if request.path.startswith('/api/'):
+            return jsonify(ok=False, code='setup_required', message='Завершите настройку первого запуска'), 403
+        return redirect(url_for('first_run.page'))
+
+    @app.before_request
     def enforce_password_change():
         """Пользователь с временным паролем (выдан админом) может только сменить пароль и выйти."""
         if not g.user or not g.user.must_change_password:
             return
+        if g.user.setup_required:
+            return  # Отдельное ограничение первого запуска уже применено.
         if request.endpoint in PASSWORD_CHANGE_ALLOWED:
             return
         if request.path.startswith("/api/"):

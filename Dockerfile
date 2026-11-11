@@ -20,8 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --chown=app:app . .
 
 # Каталоги, куда приложению разрешена запись (остальная файловая система может быть read-only)
-RUN mkdir -p /app/logs /app/backups /app/instance /app/static/avatars \
- && chown -R app:app /app/logs /app/backups /app/instance /app/static/avatars
+RUN mkdir -p /app/logs /app/backups /app/instance /app/static/avatars /app/setup \
+ && chown -R app:app /app/logs /app/backups /app/instance /app/static/avatars /app/setup
 
 USER app
 

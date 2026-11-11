@@ -66,8 +66,15 @@ Docker Desktop, HR и Kanboard запускаются общим сценари�
 3. Сгенерировать секреты: `python scripts/init_secrets.py` — создаст папку `secrets/` (в git не попадает).
    Пароли сервисных учёток впишите в `secrets/ad_password.txt`.
 4. Запустить: `docker compose up --build -d`. При старте контейнер сам применяет миграции БД.
-5. Создать админа (один раз): `docker exec -it hr_ad_panel flask --app app init-db` — пароль выведется в консоль
-   (или задайте `INITIAL_ADMIN_PASSWORD` в `.env`). Флаг `--demo` добавит тестового HR.
+5. На пустой базе создайте первого администратора: `docker exec -it hr_ad_panel flask --app app init-db`.
+6. Откройте [панель](http://localhost:5000/) на компьютере с Docker и войдите как `admin / admin`. Откроется мастер, который попросит адрес контроллера, DNS-имя домена, сервисную учётку и новый пароль администратора.
+
+### Настройка домена при первом входе
+
+- Укажите IP или полное DNS-имя контроллера. Адрес должен присутствовать в его сертификате LDAPS. Для внутреннего CA вставьте PEM-сертификат CA без закрытого ключа. LDAPS использует TCP 636. Если DNS-имя контроллера не разрешается в контейнере, настройте доступ к DNS домена на Docker-хосте.
+- Укажите DNS-имя домена и логин сервисной учётки, например `svc_hr@corp.example`. Мастер проверит вход по LDAPS и чтение корня домена. Для операций с сотрудниками сервисной учётке также нужны делегированные права и OU/группы, описанные в [инструкции AD](infra/ad/README.md).
+- Задайте новый пароль администратора и нажмите «Проверить и сохранить». После успешной проверки войдите с новым паролем. До завершения мастера начальный администратор имеет доступ только к настройке и выходу.
+- Настройки домена сохраняются зашифрованными в томе `domain_setup`, ключ остаётся в `secrets/employee_password_key.txt`. Храните резервные копии тома и ключа отдельно. Повторный `init-db` сохраняет существующие учётки. Если конфигурация AD заранее задана в `.env`, собственный `INITIAL_ADMIN_PASSWORD` позволяет создать первого администратора сразу с этим паролем.
 
 **Переезд со старой SQLite-базы:** положите её в `instance/hr.db` и выполните
 `docker compose exec hr-ad-panel python scripts/sqlite_to_postgres.py instance/hr.db`.
@@ -76,7 +83,7 @@ Docker Desktop, HR и Kanboard запускаются общим сценари�
 1. `python -m venv .venv`, `.venv\Scripts\activate`
 2. `pip install -r requirements-dev.txt`
 3. Создать `.env` (см. `.env.example`)
-4. `flask --app app init-db`
+4. `python scripts/init_secrets.py`, затем задайте в `.env` `SECRET_KEY_FILE=secrets/secret_key.txt` и `EMPLOYEE_PASSWORD_KEY_FILE=secrets/employee_password_key.txt`. Выполните `flask --app app init-db`.
 5. `python app.py`
 
 ## 🗄️ База данных и миграции

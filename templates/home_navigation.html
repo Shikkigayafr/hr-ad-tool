@@ -1,0 +1,24 @@
+{% if g.user %}
+<div class="home-nav" data-home-navigation>
+    <button class="home-nav-toggle" type="button" aria-label="Разделы панели" aria-controls="home-nav-links" aria-expanded="false">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
+            <path d="M3 4h10M3 8h10M3 12h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+    </button>
+    <nav class="home-nav-links" id="home-nav-links" aria-label="Разделы панели" hidden>
+        {% set links = [
+            ('pages.page_create', 'Создать сотрудника'),
+            ('pages.page_import', 'Массовый импорт'),
+            ('pages.page_employees', 'Список сотрудников'),
+            ('pages.page_logs', 'Журнал действий'),
+        ] %}
+        {% if g.user.role == 'admin' %}
+            {% set links = links + [('pages.page_users', 'Пользователи панели')] %}
+        {% endif %}
+        {% for endpoint, label in links %}
+            <a href="{{ url_for(endpoint) }}"{% if request.endpoint == endpoint %} aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+    </nav>
+</div>
+{% endif %}
+<a href="{{ url_for('pages.index') }}"{% if request.endpoint == 'pages.index' %} aria-current="page"{% endif %}>Главная</a>

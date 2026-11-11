@@ -39,6 +39,7 @@ services:
     # Приложение читает секреты из /run/secrets/<имя> (см. secret_utils.py)
     secrets:
       - secret_key
+      - employee_password_key
       - postgres_password
       - ad_password
       - metrics_token                 # доступ к /metrics (Zabbix / Prometheus)
@@ -117,6 +118,8 @@ volumes:
 secrets:
   secret_key:
     file: ./secrets/secret_key.txt
+  employee_password_key:
+    file: ./secrets/employee_password_key.txt
   postgres_password:
     file: ./secrets/postgres_password.txt
   ad_password:

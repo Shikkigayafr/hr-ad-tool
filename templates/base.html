@@ -4,17 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>HR → AD Панель</title>
+    <title>Панель управления сотрудниками</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% if g.user %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='navigation/home.css') }}">
+    <script src="{{ url_for('static', filename='navigation/home.js') }}" defer></script>
+    {% endif %}
+    {% block styles %}{% endblock %}
     
+    {% if request.endpoint not in ('pages.page_employee_data', 'app_upload.page') %}
     <!-- Chart.js для графиков -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Socket.IO для уведомлений в реальном времени -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    {% endif %}
 
     <script>
         // CSRF: все изменяющие запросы (POST/DELETE...) автоматически получают токен из <meta>
@@ -43,7 +50,11 @@
 <body>
     <div class="navbar">
         <div class="nav-links">
-            <a href="/">Главная</a>
+            {% include 'home_navigation.html' %}
+            {% if g.user and g.user.role == 'admin' %}
+                <a href="{{ url_for('pages.page_employee_data') }}"{% if request.endpoint == 'pages.page_employee_data' %} aria-current="page"{% endif %}>Данные сотрудников</a>
+                <a href="{{ url_for('app_upload.page') }}"{% if request.endpoint == 'app_upload.page' %} aria-current="page"{% endif %}>Загрузка приложений</a>
+            {% endif %}
         </div>
 
         <div class="nav-links">

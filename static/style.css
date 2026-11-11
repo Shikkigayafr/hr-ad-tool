@@ -1,5 +1,5 @@
 /* ============================================================
-   HR → AD Panel · Modern UI
+   Панель управления сотрудниками · Modern UI
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -741,6 +741,16 @@ tbody td:last-child { white-space: nowrap; }
     to   { opacity: 1; transform: none; }
 }
 .modal-content button + button { margin-top: 10px; }
+
+#employee-password-dialog {
+    margin: auto;
+    max-width: min(420px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    color: var(--text);
+}
+#employee-password-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+#employee-password-close { margin-top: 10px; }
 
 /* ---------- Toast (Уведомления) ---------- */
 .toast-stack {

@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Шаг 2. Создаёт структуру AD для HR-панели: OU, группы, сервисную учётку и делегирует ей права.
+    Шаг 2. Создаёт структуру AD для панели управления сотрудниками: OU, группы, сервисную учётку и делегирует ей права.
 
 .DESCRIPTION
     Идемпотентный: повторный запуск ничего не дублирует. Структура берётся из structure.json,
@@ -77,7 +77,7 @@ foreach ($group in $cfg.groups) {
     }
     elseif ($PSCmdlet.ShouldProcess($group, 'Создать группу')) {
         New-ADGroup -Name $group -SamAccountName $group -GroupScope Global -GroupCategory Security `
-            -Path $ou['groups'] -Description 'Роль в Saby/СБИС, управляется HR-панелью'
+            -Path $ou['groups'] -Description 'Роль в Saby/СБИС, управляется панелью управления сотрудниками'
         Write-Host "  + группа создана: $group" -ForegroundColor Green
     }
 }

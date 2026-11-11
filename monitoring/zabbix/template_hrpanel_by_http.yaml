@@ -7,16 +7,16 @@ zabbix_export:
   templates:
     - uuid: e3f4dd8abe314f42be8a7aa2d7805f1c
       template: 'HR AD Panel by HTTP'
-      name: 'HR AD Panel by HTTP'
+      name: 'Панель управления сотрудниками (HTTP)'
       description: |
-        Метрики HR → AD Панели (эндпоинт /metrics, формат Prometheus).
+        Метрики панели управления сотрудниками (эндпоинт /metrics, формат Prometheus).
         Хосту задайте макросы {$HRPANEL.URL} и {$HRPANEL.METRICS.TOKEN} (токен из secrets/metrics_token.txt, лучше как секретный макрос).
         Нужен Zabbix 6.0 или новее. Данные снимает один HTTP-запрос раз в минуту, остальные элементы зависимые.
       groups:
         - name: Templates/Applications
       items:
         - uuid: 8bd4fc82db164a37abf29cf57ee72109
-          name: 'HR-панель: метрики (сырые)'
+          name: 'Панель управления сотрудниками: метрики (сырые)'
           type: HTTP_AGENT
           key: hrpanel.metrics.raw
           delay: 1m
@@ -549,36 +549,36 @@ zabbix_export:
   triggers:
     - uuid: d9faa670b3304fc7b6ae3c81c86f0d61
       expression: 'nodata(/HR AD Panel by HTTP/hrpanel.metrics.raw,5m)=1'
-      name: 'HR-панель: /metrics не отвечает 5 минут'
+      name: 'Панель управления сотрудниками: /metrics не отвечает 5 минут'
       priority: HIGH
       description: 'Приложение остановлено, недоступно по сети или не проходит токен ({$HRPANEL.METRICS.TOKEN}). Проверьте docker ps / docker logs hr_ad_panel.'
     - uuid: 8ada1557ecd042e6b4c5b03b00dbe642
       expression: 'last(/HR AD Panel by HTTP/hrpanel.database.up)=0'
-      name: 'HR-панель: база данных недоступна'
+      name: 'Панель управления сотрудниками: база данных недоступна'
       priority: HIGH
       description: 'Приложение работает, но не получает ответ от БД. Проверьте контейнер db.'
     - uuid: 0b29bad14ddd4c87a6e994a6c44ba96f
       expression: 'avg(/HR AD Panel by HTTP/hrpanel.ad.errors.rate,15m)>0'
-      name: 'HR-панель: нет связи с AD'
+      name: 'Панель управления сотрудниками: нет связи с AD'
       priority: AVERAGE
       description: 'За последние 15 минут были операции, не дошедшие до контроллера домена (сеть, LDAPS, сертификат).'
     - uuid: acc508a46d914284827ae91344b336d2
       expression: 'avg(/HR AD Panel by HTTP/hrpanel.ad.fail.rate,15m)>0'
-      name: 'HR-панель: AD отклоняет операции'
+      name: 'Панель управления сотрудниками: AD отклоняет операции'
       priority: WARNING
       description: 'AD отвечает отказом: проверьте права svc_hr и журнал (logger hrpanel.audit).'
     - uuid: 459a6d2ef9b24a78b34e7472dab6cbda
       expression: 'last(/HR AD Panel by HTTP/hrpanel.logins.failed.15m)>={$HRPANEL.LOGIN_FAILED.MAX}'
-      name: 'HR-панель: много неудачных входов'
+      name: 'Панель управления сотрудниками: много неудачных входов'
       priority: WARNING
       description: 'Возможен подбор пароля. Смотрите события login_failed / login_blocked в логах (IP в поле ip).'
     - uuid: 82c38a7ebc0f40e7bd7861023e0833d4
       expression: 'avg(/HR AD Panel by HTTP/hrpanel.http.5xx.rate,5m)>0'
-      name: 'HR-панель: ошибки сервера (5xx)'
+      name: 'Панель управления сотрудниками: ошибки сервера (5xx)'
       priority: WARNING
       description: 'Смотрите docker logs hr_ad_panel (JSON, status 5xx и необработанные исключения).'
     - uuid: 39360f3564944e9b82f1b0d33b779e59
       expression: 'min(/HR AD Panel by HTTP/hrpanel.database.query.seconds,5m)>{$HRPANEL.DB_LATENCY.MAX}'
-      name: 'HR-панель: БД отвечает медленно'
+      name: 'Панель управления сотрудниками: БД отвечает медленно'
       priority: WARNING
       description: 'Простой запрос к БД дольше порога в течение 5 минут.'

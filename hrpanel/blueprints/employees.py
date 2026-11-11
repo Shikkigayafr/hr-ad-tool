@@ -5,16 +5,18 @@ from datetime import datetime
 from io import StringIO
 
 from flask import Blueprint, current_app, g, jsonify, make_response, request
+from cryptography.fernet import InvalidToken
 
 import ad_utils
+from hrpanel.employee_passwords import decrypt_issued_password, encrypt_issued_password
 from hrpanel.employee_service import ImportFileError, create_employee, import_employees, normalize_name, template_csv
 from hrpanel.extensions import db
 from hrpanel.integrations import call_ad
 from hrpanel.logging_config import audit
-from hrpanel.security import api_login_required, api_roles_required
+from hrpanel.security import api_login_required, api_roles_required, client_ip, login_lock_seconds
 from hrpanel.services import iso, log_action, notify_action, scoped_employees
 from hrpanel.validators import csv_safe, generate_password, password_error
-from models import Employee
+from models import Employee, LoginHistory
 
 bp = Blueprint("employees", __name__)
 log = logging.getLogger("hrpanel")
@@ -230,7 +232,7 @@ def delete_employee(emp_id):
 @api_roles_required("admin", "hr", "manager")
 def reset_employee_password(emp_id):
     """Сброс пароля сотрудника в AD. Пароль можно задать, иначе он генерируется и
-    возвращается ОДИН раз (в базу и в логи он не пишется)."""
+    возвращается инициатору. При настроенном ключе сохраняется зашифрованная копия."""
     emp, error = get_scoped_employee(emp_id)
     if error:
         return error
@@ -250,6 +252,7 @@ def reset_employee_password(emp_id):
     else:
         password = generate_password()
 
+    issued_password = encrypt_issued_password(password)
     try:
         ok, message = call_ad("reset_password", ad_utils.reset_password, emp.login, password, must_change=True)
     except Exception as e:
@@ -259,6 +262,7 @@ def reset_employee_password(emp_id):
         audit("password_reset_failed", login=emp.login)
         return jsonify({"ok": False, "message": message}), 500
 
+    emp.issued_password = issued_password
     text = f"сбросил пароль сотруднику {emp.full_name}"
     log_action(text)
     db.session.commit()
@@ -269,3 +273,29 @@ def reset_employee_password(emp_id):
                         "message": "Пароль сброшен. При первом входе сотрудник должен будет его сменить."})
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@bp.post("/api/employee/<int:emp_id>/reveal-password")
+@api_roles_required("admin")
+def reveal_employee_password(emp_id):
+    employee = db.session.get(Employee, emp_id)
+    if not employee or not employee.issued_password:
+        return jsonify(ok=False, message="Выданный пароль не сохранён"), 404
+
+    ip = client_ip()
+    username = g.user.username
+    if login_lock_seconds(ip, username):
+        return jsonify(ok=False, message="Слишком много попыток. Попробуйте позже."), 429
+    supplied = (request.get_json(silent=True) or {}).get("admin_password")
+    if not isinstance(supplied, str) or not g.user.check_password(supplied):
+        db.session.add(LoginHistory(username=username, ip_address=ip, success=False))
+        db.session.commit()
+        audit("employee_password_reveal_failed", employee_id=emp_id)
+        return jsonify(ok=False, message="Неверный пароль администратора"), 403
+
+    try:
+        password = decrypt_issued_password(employee.issued_password)
+    except InvalidToken:
+        return jsonify(ok=False, message="Не удалось расшифровать сохранённый пароль"), 503
+    audit("employee_password_revealed", employee_id=emp_id)
+    return jsonify(ok=True, password=password)

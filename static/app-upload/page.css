@@ -1,0 +1,43 @@
+#app-upload-form input[type="file"]::file-selector-button {
+    margin-inline-end: 12px;
+    padding: 8px 12px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+}
+
+#app-upload-form input[type="file"]::file-selector-button:hover {
+    border-color: var(--accent);
+    background: var(--surface-solid);
+}
+
+.app-upload-confirm {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 18px 0;
+    color: var(--text);
+    text-transform: none;
+    cursor: pointer;
+}
+
+.app-upload-confirm input[type="checkbox"] {
+    appearance: auto;
+    accent-color: var(--accent);
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+.app-upload-confirm input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}

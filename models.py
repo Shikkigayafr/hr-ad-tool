@@ -26,6 +26,7 @@ class Employee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(150), nullable=False)
     login = db.Column(db.String(80), unique=True, nullable=False)
+    issued_password = db.Column(db.Text, nullable=True)  # Зашифрованный последний пароль, выданный панелью
     department = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(50), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)

@@ -8,7 +8,7 @@ groups:
         for: 3m
         labels: {severity: critical}
         annotations:
-          summary: "HR-панель недоступна (или /metrics не отдаётся)"
+          summary: "Панель управления сотрудниками недоступна (или /metrics не отдаётся)"
 
       - alert: HrPanelDatabaseDown
         expr: hrpanel_database_up == 0

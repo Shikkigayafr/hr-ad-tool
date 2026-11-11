@@ -14,13 +14,16 @@ services:
       FLASK_DEBUG: "0"
       YANDEX_ENABLED: "false"
       SABY_ENABLED: "false"
+      APP_UPLOAD_ENABLED: "true"
       DATABASE_URL: sqlite:////app/instance/hr.db
       SECRET_KEY_FILE: /run/secrets/secret_key
+      EMPLOYEE_PASSWORD_KEY_FILE: /run/secrets/employee_password_key
       AD_PASSWORD_FILE: /run/secrets/ad_password
       AD_CA_CERTS_FILE: /run/hrpanel/ldaps-ca.pem
       LOG_DIR: /app/logs
     secrets:
       - secret_key
+      - employee_password_key
       - ad_password
     volumes:
       - ./instance:/app/instance
@@ -46,5 +49,7 @@ services:
 secrets:
   secret_key:
     file: ./secrets/secret_key.txt
+  employee_password_key:
+    file: ./secrets/employee_password_key.txt
   ad_password:
     file: ./secrets/ad_password.txt

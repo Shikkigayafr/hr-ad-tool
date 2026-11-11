@@ -1,9 +1,9 @@
 """Пользователи самой панели (admin / hr / manager) — только для администратора."""
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, jsonify, request, session
 
 from hrpanel.extensions import db
 from hrpanel.logging_config import audit
-from hrpanel.security import api_roles_required
+from hrpanel.security import api_roles_required, session_auth_tag
 from hrpanel.services import DEPARTMENTS, PANEL_ROLES, log_action
 from hrpanel.validators import LOGIN_RE, password_error
 from models import User
@@ -69,6 +69,8 @@ def delete_panel_user(user_id):
     log_action(f"удалил пользователя панели {username}")
     db.session.delete(user)
     db.session.commit()
+    from hrpanel.sockets import disconnect_user
+    disconnect_user(user_id)
     audit("panel_user_deleted", username=username)
     return jsonify({"ok": True, "message": "Пользователь удалён"})
 
@@ -88,4 +90,8 @@ def reset_panel_user_password(user_id):
     log_action(f"сбросил пароль пользователю {user.username}")
     db.session.commit()
     audit("panel_user_password_reset", username=user.username)
+    if user.id == g.user.id:
+        session["auth_tag"] = session_auth_tag(user)
+    from hrpanel.sockets import disconnect_user
+    disconnect_user(user.id)
     return jsonify({"ok": True, "message": f"Пароль для {user.username} изменён"})

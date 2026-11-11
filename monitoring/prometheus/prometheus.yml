@@ -1,4 +1,4 @@
-# Prometheus для HR-панели. Запуск: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+# Prometheus для панели управления сотрудниками. Запуск: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 global:
   scrape_interval: 30s
   evaluation_interval: 30s

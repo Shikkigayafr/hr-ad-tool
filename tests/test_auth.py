@@ -119,4 +119,4 @@ def test_tls_verification_is_enabled_by_ca_file(monkeypatch, tmp_path):
     assert tls.validate == ssl.CERT_REQUIRED and tls.ca_certs_file == str(ca)
     assert tls.valid_names == ["dc01.corp.local"]
     monkeypatch.setattr(ad_utils, "AD_CA_CERTS_FILE", None)
-    assert ad_utils.build_tls().validate == ssl.CERT_NONE
+    assert ad_utils.build_tls().validate == ssl.CERT_REQUIRED

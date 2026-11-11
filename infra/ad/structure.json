@@ -1,12 +1,12 @@
 {
-  "_comment": "Описание структуры AD для панели. Список отделов и групп должен совпадать с saby_config.py и models/hrpanel (это проверяет тест tests/test_infra_files.py).",
+  "_comment": "Описание структуры AD для панели. Список отделов и групп должен совпадать с hrpanel/services.py (это проверяет тест tests/test_infra_files.py).",
   "domain": {
     "name": "evostore.local",
     "netbios": "EVOSTORE"
   },
   "serviceAccount": {
     "name": "svc_hr",
-    "description": "Сервисная учётка HR-панели (создание и отключение пользователей)"
+    "description": "Сервисная учётка панели управления сотрудниками (создание и отключение пользователей)"
   },
   "ous": {
     "departments": "Departments",

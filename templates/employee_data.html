@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Данные сотрудников</h1>
+    <p>Логины AD и последние пароли, выданные через панель. После смены пароля в AD сохранённый пароль может устареть.</p>
+    <label for="employee-data-search">Поиск сотрудника</label>
+    <input id="employee-data-search" type="search" placeholder="Имя, логин или отдел">
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Сотрудник</th><th>Логин AD</th><th>Отдел</th><th>Пароль</th></tr></thead>
+            <tbody id="employee-data-rows">
+                {% for employee in employees %}
+                <tr>
+                    <td data-label="Сотрудник">{{ employee.full_name }}{% if not employee.is_active %} <small>(отключён)</small>{% endif %}</td>
+                    <td data-label="Логин AD"><strong>{{ employee.login }}</strong></td>
+                    <td data-label="Отдел">{{ employee.department }}</td>
+                    <td data-label="Пароль">
+                        {% if employee.has_password %}
+                        <button type="button" class="btn-secondary btn-small" data-reveal="{{ url_for('employees.reveal_employee_password', emp_id=employee.id) }}" data-login="{{ employee.login }}">Показать</button>
+                        {% else %}
+                        <span>Не сохранён</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4">Сотрудников пока нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p>Чтобы выдать новый пароль, откройте <a href="{{ url_for('pages.page_employees') }}">список сотрудников</a> и нажмите «Пароль».</p>
+
+    <dialog id="employee-password-dialog" class="modal-content" aria-labelledby="employee-password-title">
+        <h2 id="employee-password-title">Выданный пароль</h2>
+        <p id="employee-password-login"></p>
+        <form id="employee-password-form">
+            <label for="employee-admin-password">Подтвердите пароль администратора</label>
+            <input id="employee-admin-password" type="password" autocomplete="current-password" required>
+            <button type="submit" class="btn-block">Показать пароль</button>
+        </form>
+        <div id="employee-password-result" hidden>
+            <label for="employee-password-value">Последний выданный пароль</label>
+            <input id="employee-password-value" type="text" readonly autocomplete="off" spellcheck="false">
+            <button type="button" id="employee-password-copy" class="btn-block">Скопировать</button>
+        </div>
+        <button type="button" id="employee-password-close" class="btn-secondary btn-block">Закрыть</button>
+    </dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const dialog = document.getElementById('employee-password-dialog');
+    const form = document.getElementById('employee-password-form');
+    const adminPassword = document.getElementById('employee-admin-password');
+    const result = document.getElementById('employee-password-result');
+    const issuedPassword = document.getElementById('employee-password-value');
+    const submit = form.querySelector('button');
+    let revealUrl;
+    let pending;
+
+    document.getElementById('employee-data-search').addEventListener('input', event => {
+        const query = event.target.value.trim().toLowerCase();
+        document.querySelectorAll('#employee-data-rows tr').forEach(row => {
+            row.hidden = !row.textContent.toLowerCase().includes(query);
+        });
+    });
+
+    document.querySelectorAll('[data-reveal]').forEach(button => {
+        button.addEventListener('click', () => {
+            revealUrl = button.dataset.reveal;
+            document.getElementById('employee-password-login').textContent = button.dataset.login;
+            dialog.showModal();
+        });
+    });
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const controller = new AbortController();
+        pending = controller;
+        const payload = JSON.stringify({admin_password: adminPassword.value});
+        adminPassword.value = '';
+        submit.disabled = true;
+        try {
+            const response = await fetch(revealUrl, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: payload, cache: 'no-store', signal: controller.signal
+            });
+            const data = await response.json();
+            if (controller.signal.aborted) return;
+            if (!response.ok || !data.ok) {
+                toast(data.message || 'Не удалось показать пароль', false);
+                return;
+            }
+            issuedPassword.value = data.password;
+            form.hidden = true;
+            result.hidden = false;
+            issuedPassword.focus();
+        } catch (error) {
+            if (error.name !== 'AbortError') toast('Не удалось показать пароль', false);
+        } finally {
+            if (pending === controller) {
+                submit.disabled = false;
+                pending = undefined;
+            }
+        }
+    });
+
+    document.getElementById('employee-password-copy').addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(issuedPassword.value);
+            toast('Пароль скопирован', true);
+        } catch {
+            issuedPassword.select();
+            toast('Выделили пароль для копирования', true);
+        }
+    });
+    document.getElementById('employee-password-close').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => {
+        pending?.abort();
+        pending = undefined;
+        submit.disabled = false;
+        adminPassword.value = '';
+        issuedPassword.value = '';
+        result.hidden = true;
+        form.hidden = false;
+    });
+</script>
+{% endblock %}

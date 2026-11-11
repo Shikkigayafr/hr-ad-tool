@@ -3,7 +3,7 @@
     python scripts/init_secrets.py
 
 Случайные значения генерируются для secret_key и postgres_password.
-ad_password и saby_password остаются пустыми — впишите туда пароли руками (одна строка, без кавычек).
+ad_password остаётся пустым — впишите туда пароли руками (одна строка, без кавычек).
 Существующие файлы не перезаписываются (флаг --force перезапишет сгенерированные).
 Пустой файл безопасен: приложение тогда возьмёт значение из .env или значение по умолчанию.
 """
@@ -16,11 +16,12 @@ SECRETS_DIR = os.path.join(ROOT, "secrets")
 
 GENERATED = {
     "secret_key": lambda: secrets.token_hex(32),
+    "employee_password_key": lambda: secrets.token_urlsafe(32) + "=",
     "postgres_password": lambda: secrets.token_urlsafe(24),
     "metrics_token": lambda: secrets.token_urlsafe(32),   # для Zabbix/Prometheus: Authorization: Bearer ...
     "grafana_admin_password": lambda: secrets.token_urlsafe(18),   # нужен только docker-compose.monitoring.yml
 }
-MANUAL = ["ad_password", "saby_password"]
+MANUAL = ["ad_password"]
 
 
 def write(name: str, value: str, force: bool) -> str:
@@ -43,12 +44,13 @@ def main():
 
     os.makedirs(SECRETS_DIR, exist_ok=True)
     for name, make in GENERATED.items():
-        print(f"secrets/{name}.txt: {write(name, make(), args.force)}")
+        # Замена ключа шифрования лишит доступа к сохранённым паролям.
+        print(f"secrets/{name}.txt: {write(name, make(), args.force and name != 'employee_password_key')}")
     for name in MANUAL:
         # пустые файлы не перезаписываем даже с --force: там могут лежать ваши пароли
         print(f"secrets/{name}.txt: {write(name, '', force=False)}")
 
-    print("\nГотово. Впишите пароли в secrets/ad_password.txt и secrets/saby_password.txt (если нужны),")
+    print("\nГотово. Впишите пароли в secrets/ad_password.txt (если нужен),")
     print("затем: docker compose up --build -d")
     print("Внимание: смена postgres_password после первого запуска не меняет пароль уже созданной БД.")
 

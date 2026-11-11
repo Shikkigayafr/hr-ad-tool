@@ -3,8 +3,9 @@ import secrets
 from flask import Blueprint, g, jsonify, request, session
 
 from hrpanel.extensions import db
+from hrpanel.blueprints.first_run import local_setup_host
 from hrpanel.logging_config import audit
-from hrpanel.security import LOCK_ATTEMPTS, client_ip, failed_attempts, login_lock_seconds
+from hrpanel.security import LOCK_ATTEMPTS, client_ip, failed_attempts, login_lock_seconds, session_auth_tag
 from models import LoginHistory, User
 
 bp = Blueprint("auth", __name__)
@@ -34,8 +35,11 @@ def login():
     user = User.query.filter_by(username=username).first() if username else None
 
     if user and user.check_password(password):
+        if user.setup_required and not local_setup_host():
+            return jsonify(ok=False, message="Первый вход доступен через localhost"), 403
         session.clear()  # новая сессия после входа
         session["user_id"] = user.id
+        session["auth_tag"] = session_auth_tag(user)
         session["csrf"] = secrets.token_hex(16)
         db.session.add(LoginHistory(username=username, ip_address=ip, success=True))
         db.session.commit()
@@ -64,5 +68,8 @@ def check_lockout():
 
 @bp.route("/api/logout", methods=["POST"])
 def logout():
+    from hrpanel.sockets import disconnect_user
+    if g.user:
+        disconnect_user(g.user.id, csrf=session.get("csrf"))
     session.clear()
     return jsonify({"ok": True})

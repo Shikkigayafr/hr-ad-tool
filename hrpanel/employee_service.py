@@ -6,8 +6,9 @@ import logging
 from flask import current_app, g
 
 import ad_utils
+from hrpanel.employee_passwords import encrypt_issued_password
 from hrpanel.extensions import db
-from hrpanel.integrations import call_ad, call_saby, call_yandex
+from hrpanel.integrations import call_ad, call_yandex
 from hrpanel.logging_config import audit
 from hrpanel.services import DEPARTMENTS, EMPLOYEE_ROLES, log_action, notify_action
 from hrpanel.validators import EMAIL_RE, LOGIN_RE, NAME_RE, generate_password, password_error
@@ -75,6 +76,7 @@ def create_employee(full_name, login, email, password, department, role, confirm
     if problem:
         return False, problem[0], problem[1]
 
+    issued_password = encrypt_issued_password(password)
     try:
         ok, message = call_ad("create_user", ad_utils.create_user, full_name, login, password, department=department,
                               group_dn=ad_utils.get_group_dn(role), email=email or None)
@@ -86,23 +88,13 @@ def create_employee(full_name, login, email, password, department, role, confirm
         audit("employee_create_failed", login=login, department=department)
         return False, message, 500
 
-    db.session.add(Employee(full_name=full_name, login=login, department=department, role=role))
+    db.session.add(Employee(full_name=full_name, login=login, department=department, role=role,
+                            issued_password=issued_password))
     text = f"создал сотрудника {full_name}"
     log_action(text)
     db.session.commit()
     notify_action(text)
     audit("employee_created", login=login, department=department, role=role)
-
-    if current_app.config["SABY_ENABLED"]:
-        # Saby не критичен: ошибка не отменяет создание в AD
-        try:
-            from saby_utils import create_saby_user
-            saby_ok, saby_msg = call_saby("create_user", create_saby_user, full_name, login, password, department)
-        except Exception as e:
-            log.exception("Ошибка Saby при создании %s", login)
-            saby_ok, saby_msg = False, f"Ошибка Saby: {e}"
-        audit("saby_create", login=login, ok=saby_ok)
-        message += f" | Saby: {saby_msg}"
 
     if current_app.config["YANDEX_ENABLED"]:
         # Яндекс 360 не критичен: ошибка не отменяет создание в AD

@@ -16,7 +16,7 @@ def load_structure():
 
 def test_structure_departments_match_application():
     structure = load_structure()
-    assert structure["departments"] == DEPARTMENTS, "OU отделов в infra/ad/structure.json разошлись с saby_config.py"
+    assert structure["departments"] == DEPARTMENTS, "OU отделов в infra/ad/structure.json разошлись со списком отделов панели"
 
 
 def test_structure_groups_match_roles():

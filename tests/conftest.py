@@ -7,6 +7,7 @@ os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "sqlite:///:mem
 os.environ["DRY_RUN"] = "true"
 os.environ["SECRET_KEY"] = "test-secret"
 os.environ["SABY_ENABLED"] = "false"
+os.environ["YANDEX_ENABLED"] = "false"
 os.environ["AD_SYNC_CHANGES"] = "false"
 os.environ["LOG_TO_FILE"] = "false"   # тесты не пишут в logs/
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -13,6 +13,24 @@ def test_admin_creates_employee_dry_run(as_user):
     assert [e["full_name"] for e in emps] == ["Иванов Иван Иванович"]
 
 
+def test_create_without_email_does_not_provision_mail(app, as_user, monkeypatch):
+    import ad_utils
+    import yandex_utils
+    from unittest.mock import Mock
+
+    monkeypatch.setitem(app.config, "YANDEX_ENABLED", False)
+    ad = Mock(return_value=(True, "AD created"))
+    mail = Mock(side_effect=AssertionError("Mail provisioning must remain disabled"))
+    monkeypatch.setattr(ad_utils, "create_user", ad)
+    monkeypatch.setattr(yandex_utils, "create_yandex_user", mail)
+    payload = employee_payload()
+    payload.pop("email")
+    result = as_user("admin").post("/api/create", json=payload)
+    assert result.status_code == 200 and result.json["ok"]
+    assert ad.call_args.kwargs["email"] is None
+    mail.assert_not_called()
+
+
 def test_duplicate_login_rejected(as_user):
     admin = as_user("admin")
     assert create(admin).status_code == 200

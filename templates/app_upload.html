@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='app-upload/page.css') }}">
+{% endblock %}
+
+{% block content %}
+<h1>Загрузка приложений</h1>
+{% if enabled %}
+<p>Установщик попадёт в C:\Deploy и SYSVOL. При следующем запуске install_all_apps.bat на компьютере выполнится добавленная команда.</p>
+<form id="app-upload-form" class="settings-card" action="{{ url_for('app_upload.upload') }}" method="post" enctype="multipart/form-data">
+    <label for="installer">Установщик MSI или EXE, до 300 МБ</label>
+    <input id="installer" name="installer" type="file" accept=".msi,.exe" required>
+    <label for="publish-name">Имя файла при публикации</label>
+    <input id="publish-name" name="publish_name" placeholder="setup.exe" maxlength="124" required>
+    <div id="exe-arguments" hidden>
+        <label for="arguments">Параметры запуска EXE</label>
+        <input id="arguments" name="arguments" placeholder="/VERYSILENT /NORESTART" maxlength="512">
+    </div>
+    <p>Команда в батнике</p>
+    <pre><code id="app-upload-preview">Выберите файл</code></pre>
+    <label for="app-upload-password">Пароль администратора панели</label>
+    <input id="app-upload-password" name="admin_password" type="password" autocomplete="current-password" required>
+    <label class="app-upload-confirm" for="confirm-publish">
+        <input id="confirm-publish" type="checkbox" name="confirm_publish" value="yes" required>
+        <span>Опубликовать установщик и добавить команду в батник SYSVOL</span>
+    </label>
+    <button type="submit" class="btn-block">Опубликовать</button>
+    <p id="app-upload-status" role="status" aria-live="polite"></p>
+</form>
+{% else %}
+<p>Загрузка приложений отключена в настройках панели.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if enabled %}
+<script src="{{ url_for('static', filename='app-upload/page.js') }}" defer></script>
+{% endif %}
+{% endblock %}

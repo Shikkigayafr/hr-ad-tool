@@ -1,10 +1,10 @@
 import os
 
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request, session
 
 from hrpanel.extensions import db
 from hrpanel.logging_config import audit
-from hrpanel.security import api_login_required
+from hrpanel.security import api_login_required, session_auth_tag
 from hrpanel.validators import password_error
 
 bp = Blueprint("profile", __name__)
@@ -49,6 +49,10 @@ def update_password():
     g.user.set_password(new_pass)
     g.user.must_change_password = False
     db.session.commit()
+    # Сохраняем текущий браузер, остальные cookie перестают проходить проверку.
+    session["auth_tag"] = session_auth_tag(g.user)
+    from hrpanel.sockets import disconnect_user
+    disconnect_user(g.user.id)
     audit("password_changed")
     return jsonify({"ok": True, "message": "Пароль успешно изменен!"})
 

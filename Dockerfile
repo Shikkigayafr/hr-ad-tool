@@ -20,8 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --chown=app:app . .
 
 # Каталоги, куда приложению разрешена запись (остальная файловая система может быть read-only)
-RUN mkdir -p /app/logs /app/backups /app/instance /app/static/avatars \
- && chown -R app:app /app/logs /app/backups /app/instance /app/static/avatars
+RUN mkdir -p /app/logs /app/backups /app/instance /app/static/avatars /app/setup \
+ && chown -R app:app /app/logs /app/backups /app/instance /app/static/avatars /app/setup
 
 USER app
 
@@ -30,4 +30,4 @@ EXPOSE 5000
 
 # При старте применяем миграции БД (идемпотентно), затем запускаем Gunicorn
 # с gevent-воркером для WebSockets
-CMD ["sh", "-c", "flask --app app upgrade-db && exec gunicorn --worker-class gevent -w 1 -b 0.0.0.0:5000 app:app"]
+CMD ["sh", "-c", "flask --app app upgrade-db && exec gunicorn --no-control-socket --worker-class gevent -w 1 -b 0.0.0.0:5000 app:app"]

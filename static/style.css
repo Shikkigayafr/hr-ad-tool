@@ -1,5 +1,5 @@
 /* ============================================================
-   HR → AD Panel · Modern UI
+   Панель управления сотрудниками · Modern UI
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -64,6 +64,8 @@
 html { scroll-behavior: smooth; }
 
 body {
+    display: flex;
+    flex-direction: column;
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Tahoma, sans-serif;
     background: var(--bg);
     color: var(--text);
@@ -136,6 +138,22 @@ p { margin: 8px 0; color: var(--text-muted); }
 }
 .navbar a:hover { background: rgba(255,255,255,.08); color: #fff; transform: translateY(-1px); }
 .navbar a:active { transform: translateY(0); }
+
+.nav-integrations > a {
+    white-space: nowrap;
+}
+
+.nav-integrations > a[aria-current="page"] {
+    color: #fff;
+}
+
+@media (min-width: 1200px) {
+    .nav-integrations {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+}
 
 .btn-login {
     background: var(--accent-grad);
@@ -742,6 +760,16 @@ tbody td:last-child { white-space: nowrap; }
 }
 .modal-content button + button { margin-top: 10px; }
 
+#employee-password-dialog {
+    margin: auto;
+    max-width: min(420px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    color: var(--text);
+}
+#employee-password-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+#employee-password-close { margin-top: 10px; }
+
 /* ---------- Toast (Уведомления) ---------- */
 .toast-stack {
     position: fixed;
@@ -1191,6 +1219,47 @@ input.input-error {
     margin: 0; 
     /* Оставляем место справа, чтобы логи не перекрывали контент на средних экранах */
     margin-right: 0; 
+}
+
+.main-wrapper .integrations-container {
+    max-width: 1180px;
+}
+
+.uis-status {
+    position: relative;
+    display: inline-block;
+}
+
+.uis-status summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.uis-status summary::-webkit-details-marker { display: none; }
+
+.uis-status summary::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ef4444;
+}
+
+.uis-status summary:hover { background: var(--border); }
+
+.uis-status p {
+    margin: 5px 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
 }
 
 /* 3. Сайдбар — ПРИБИТ К ПРАВОМУ КРАЮ ЭКРАНА */

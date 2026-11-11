@@ -1,7 +1,9 @@
 """Сессии, CSRF, блокировка входа и проверка прав."""
 import secrets
+import hmac
 from datetime import datetime, timedelta
 from functools import wraps
+from urllib.parse import urlsplit
 
 from flask import current_app, g, jsonify, redirect, request, session, url_for
 
@@ -21,13 +23,27 @@ PASSWORD_CHANGE_ALLOWED = {
 }
 
 
+def session_auth_tag(user):
+    """Привязка cookie к текущему паролю без раскрытия его хеша клиенту."""
+    key = current_app.secret_key
+    if isinstance(key, str):
+        key = key.encode()
+    return hmac.new(key, f"{user.id}:{user.password_hash}".encode(), "sha256").hexdigest()
+
+
+def session_matches_user(user):
+    tag = session.get("auth_tag")
+    return bool(user and isinstance(tag, str) and secrets.compare_digest(tag, session_auth_tag(user)))
+
+
 # --- Клиент и блокировка входа ---
 def client_ip():
     # За reverse-proxy включите TRUST_PROXY=true, иначе X-Forwarded-For можно подделать
     if current_app.config.get("TRUST_PROXY"):
         forwarded = request.headers.get("X-Forwarded-For", "")
         if forwarded:
-            return forwarded.split(",")[0].strip()
+            # Доверяем только последнему proxy, который дописывает адрес TCP-клиента.
+            return forwarded.split(",")[-1].strip()
     return request.remote_addr or ""
 
 
@@ -103,7 +119,7 @@ def register_security(app):
         if not uid:
             return
         user = db.session.get(User, uid)
-        if not user:
+        if not session_matches_user(user):
             session.clear()
             return
         g.user = user
@@ -117,17 +133,39 @@ def register_security(app):
     @app.before_request
     def check_csrf():
         """Все изменяющие запросы от авторизованного пользователя должны нести X-CSRF-Token."""
-        if request.method in ("GET", "HEAD", "OPTIONS") or not g.user:
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return
+        # Также защищает анонимный вход от login CSRF. Origin задаёт браузер.
+        origin = request.headers.get("Origin")
+        if origin and (urlsplit(origin).scheme, urlsplit(origin).netloc) != (request.scheme, request.host):
+            return jsonify({"ok": False, "message": "Недопустимый источник запроса"}), 403
+        if request.is_json:
+            data = request.get_json(silent=True)
+            if not isinstance(data, dict):
+                return jsonify({"ok": False, "message": "Ожидается JSON-объект"}), 400
+        if not g.user:
             return
         sent = request.headers.get("X-CSRF-Token", "")
         if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
             return jsonify({"ok": False, "message": "Сессия устарела, обновите страницу"}), 403
 
     @app.before_request
+    def enforce_first_run():
+        if not g.user or not g.user.setup_required:
+            return
+        if request.endpoint in {'static', 'system.health_check', 'auth.logout', 'first_run.page', 'first_run.finish'}:
+            return
+        if request.path.startswith('/api/'):
+            return jsonify(ok=False, code='setup_required', message='Завершите настройку первого запуска'), 403
+        return redirect(url_for('first_run.page'))
+
+    @app.before_request
     def enforce_password_change():
         """Пользователь с временным паролем (выдан админом) может только сменить пароль и выйти."""
         if not g.user or not g.user.must_change_password:
             return
+        if g.user.setup_required:
+            return  # Отдельное ограничение первого запуска уже применено.
         if request.endpoint in PASSWORD_CHANGE_ALLOWED:
             return
         if request.path.startswith("/api/"):
@@ -142,3 +180,12 @@ def register_security(app):
                 session["csrf"] = secrets.token_hex(16)
             return session["csrf"]
         return {"csrf_token": csrf_token}
+
+    @app.after_request
+    def secure_response(response):
+        # Страницы содержат CSRF, API — персональные данные и иногда одноразовые пароли.
+        if request.path.startswith("/api/") or response.mimetype == "text/html":
+            response.headers["Cache-Control"] = "no-store"
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        return response

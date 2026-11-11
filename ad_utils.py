@@ -4,6 +4,7 @@ from ldap3.utils.dn import escape_rdn, safe_rdn
 from ldap3.utils.conv import escape_filter_chars
 import os
 import ssl
+from urllib.parse import urlsplit
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -12,8 +13,8 @@ from secret_utils import read_secret
 load_dotenv()
 
 AD_SERVER = os.getenv("AD_SERVER", "ldaps://192.168.88.10")
-AD_USER = os.getenv("AD_USER", "svc_hr@yourdomain.local")
-AD_PASSWORD = read_secret("AD_PASSWORD", "ChangeMe123!")
+AD_USER = os.getenv("AD_USER")
+AD_PASSWORD = read_secret("AD_PASSWORD")
 BASE_DN = os.getenv("BASE_DN", "DC=yourdomain,DC=local")
 USERS_OU = os.getenv("USERS_OU", "OU=NewUsers,DC=yourdomain,DC=local")
 
@@ -25,6 +26,7 @@ DISABLED_OU = os.getenv("DISABLED_OU", f"OU=Disabled,{BASE_DN}")
 
 # Путь к PEM-файлу с сертификатом (или корневым CA), которому доверяем при LDAPS
 AD_CA_CERTS_FILE = os.getenv("AD_CA_CERTS_FILE") or None
+AD_CA_CERTS_DATA = None
 
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 
@@ -35,17 +37,17 @@ def get_group_dn(role: str) -> str:
 
 
 def build_tls():
-    """TLS для LDAPS. Если задан AD_CA_CERTS_FILE — сертификат контроллера проверяется
-    (цепочка и имя хоста), иначе работаем как раньше (CERT_NONE) и предупреждаем."""
-    if AD_CA_CERTS_FILE:
-        host = AD_SERVER.split("://")[-1].split(":")[0]
-        return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=AD_CA_CERTS_FILE, valid_names=[host])
-    if not DRY_RUN:
-        print("⚠️  AD_CA_CERTS_FILE не задан — сертификат LDAPS не проверяется (см. README)")
-    return Tls(validate=ssl.CERT_NONE)
+    """Всегда проверяем цепочку и имя DC; без файла CA используем системное хранилище."""
+    host = urlsplit(AD_SERVER if "://" in AD_SERVER else f"ldaps://{AD_SERVER}").hostname
+    if not host:
+        raise ValueError("AD_SERVER должен содержать имя контроллера домена")
+    return Tls(validate=ssl.CERT_REQUIRED, ca_certs_file=AD_CA_CERTS_FILE,
+               ca_certs_data=AD_CA_CERTS_DATA, valid_names=[host])
 
 
 def get_connection():
+    if not AD_USER or not AD_PASSWORD:
+        raise ValueError("Для подключения к AD задайте AD_USER и секрет AD_PASSWORD")
     server = Server(AD_SERVER, port=636, use_ssl=True, tls=build_tls(), get_info=ALL)
     conn = Connection(server, user=AD_USER, password=AD_PASSWORD, auto_bind=True)
     return conn

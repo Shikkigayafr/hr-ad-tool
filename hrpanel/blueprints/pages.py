@@ -2,6 +2,7 @@ from flask import Blueprint, render_template
 
 from hrpanel.security import page_login_required
 from hrpanel.services import DEPARTMENTS
+from models import Employee
 
 bp = Blueprint("pages", __name__)
 
@@ -45,3 +46,22 @@ def page_logs():
 @page_login_required("admin")
 def page_users():
     return render_template("users.html", departments=DEPARTMENTS)
+
+
+@bp.get("/employee-data")
+@page_login_required("admin")
+def page_employee_data():
+    employees = Employee.query.with_entities(
+        Employee.id, Employee.full_name, Employee.login, Employee.department, Employee.is_active,
+        Employee.issued_password.is_not(None).label("has_password"),
+    ).order_by(Employee.full_name, Employee.id).all()
+    return render_template("employee_data.html", employees=employees)
+
+
+@bp.get("/integrations")
+@page_login_required("admin")
+def page_integrations():
+    employees = Employee.query.with_entities(
+        Employee.full_name, Employee.login, Employee.department, Employee.is_active,
+    ).order_by(Employee.full_name, Employee.id).all()
+    return render_template("integrations.html", employees=employees)

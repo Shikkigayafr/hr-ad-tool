@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block container_class %} integrations-container{% endblock %}
+
+{% block content %}
+    <h1>Интеграции</h1>
+    <div class="table-wrapper">
+        <table aria-label="Сотрудники из базы панели">
+            <thead>
+                <tr><th>Сотрудник</th><th>Логин AD</th><th>Отдел</th><th>Статус</th><th>UIS</th></tr>
+            </thead>
+            <tbody>
+                {% for employee in employees %}
+                <tr>
+                    <td data-label="Сотрудник">{{ employee.full_name }}</td>
+                    <td data-label="Логин AD">{{ employee.login }}</td>
+                    <td data-label="Отдел">{{ employee.department or '—' }}</td>
+                    <td data-label="Статус">{{ 'Активен' if employee.is_active else 'Отключён' }}</td>
+                    <td data-label="UIS">
+                        <details class="uis-status">
+                            <summary title="UIS: нет привязки" aria-label="UIS: нет привязки">UIS</summary>
+                            <p>Нет привязки</p>
+                        </details>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">Сотрудников пока нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

@@ -18,12 +18,14 @@
     </div>
     <div class="error-text" id="err-login"></div>
 
+    {% if config.YANDEX_ENABLED %}
     <label for="email">Рабочая почта (Email)</label>
     <div class="input-group">
         <input id="email" type="email" placeholder="ivanov@evostor.ru" autocomplete="email" oninput="validateField('email')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
     </div>
     <div class="error-text" id="err-email"></div>
+    {% endif %}
 
     <label for="password">Пароль</label>
     <div class="input-group">
@@ -48,7 +50,7 @@
     </div>
     <div class="error-text" id="err-confirm"></div>
 
-    <label for="department">Отдел (как в СБИС)</label>
+    <label for="department">Отдел в AD</label>
     <select id="department">
         {% for dept in departments %}
         <option>{{ dept }}</option>
@@ -88,6 +90,7 @@
     // Функция валидации конкретного поля
     function validateField(fieldId) {
         const el = document.getElementById(fieldId);
+        if (!el) return { isValid: true, msg: '' };
         const errEl = document.getElementById('err-' + fieldId);
         let isValid = true;
         let msg = '';
@@ -201,7 +204,7 @@
                 body: JSON.stringify({
                     full_name: document.getElementById('full_name').value.trim(),
                     login: document.getElementById('login').value.trim(),
-                    email: document.getElementById('email').value.trim(),
+                    email: document.getElementById('email')?.value.trim() || '',
                     password: document.getElementById('password').value,
                     confirm: document.getElementById('confirm').value,
                     department: document.getElementById('department').value,
@@ -215,8 +218,11 @@
             
             if (data.ok) {
                 ['full_name', 'login', 'email', 'password', 'confirm'].forEach(id => {
-                    document.getElementById(id).value = '';
-                    document.getElementById(id).classList.remove('input-error');
+                    const input = document.getElementById(id);
+                    if (input) {
+                        input.value = '';
+                        input.classList.remove('input-error');
+                    }
                 });
                 document.querySelectorAll('.error-text').forEach(el => el.textContent = '');
                 checkPasswordStrength();

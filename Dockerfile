@@ -1,5 +1,5 @@
 # Используем официальный легкий образ Python
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 # Логи сразу в stdout (docker logs), без .pyc
 ENV PYTHONUNBUFFERED=1 \

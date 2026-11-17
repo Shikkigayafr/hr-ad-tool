@@ -11,7 +11,7 @@ python-dotenv==1.2.4
 requests==2.34.2
 APScheduler==3.11.3
 psycopg2-binary==2.9.13
-gunicorn==26.2.0
+gunicorn==27.0.1
 gevent==26.9.0
 pysaby==0.1.4
 prometheus-client==0.26.0
